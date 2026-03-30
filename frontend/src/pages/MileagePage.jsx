@@ -2,41 +2,6 @@ import React, { useState } from "react";
 import api from "../api/client";
 import StatusCard from "../components/StatusCard";
 
-const btnStyle = (color = "#3494BA", disabled = false) => ({
-  background: disabled ? "#CEDBE6" : color,
-  color: "#fff",
-  border: "none",
-  borderRadius: "8px",
-  padding: "0.7rem 1.4rem",
-  fontWeight: "600",
-  fontSize: "0.95rem",
-  cursor: disabled ? "not-allowed" : "pointer",
-  marginTop: "0.5rem",
-});
-
-const inputStyle = {
-  display: "block",
-  width: "100%",
-  padding: "0.65rem",
-  borderRadius: "8px",
-  border: "1.5px solid #CEDBE6",
-  marginTop: "0.4rem",
-  marginBottom: "1rem",
-  fontSize: "0.95rem",
-  background: "#fff",
-};
-
-const tagStyle = {
-  display: "inline-block",
-  background: "#CEDBE6",
-  color: "#373545",
-  borderRadius: "6px",
-  padding: "0.25rem 0.6rem",
-  fontSize: "0.82rem",
-  marginRight: "0.4rem",
-  marginTop: "0.3rem",
-};
-
 export default function MileagePage() {
   const today = new Date().toISOString().split("T")[0];
   const [weekDate, setWeekDate] = useState(today);
@@ -70,47 +35,48 @@ export default function MileagePage() {
   const parsed = result?.parsed_data;
 
   return (
-    <div>
-      <h1 style={{ fontSize: "1.5rem", marginBottom: "0.3rem" }}>
-        Weekly Mileage Check-in
-      </h1>
-      <p style={{ color: "#7A8C8E", marginBottom: "1.8rem", fontSize: "0.95rem" }}>
-        Tell the agent how this week went. It will automatically update your
-        mileage log in Google Sheets.
-      </p>
-
-      <label style={{ fontWeight: "600", fontSize: "0.95rem" }}>
-        Week Date
-      </label>
-      <input
-        type="date"
-        value={weekDate}
-        onChange={(e) => setWeekDate(e.target.value)}
-        style={inputStyle}
-      />
-
-      <label style={{ fontWeight: "600", fontSize: "0.95rem" }}>
-        How did the week go?
-      </label>
-      <textarea
-        rows={4}
-        placeholder='e.g. "All good, normal week" or "Philipp was sick on Tuesday and Thursday, and I drove an extra 30km to his grandma on Saturday."'
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        style={{ ...inputStyle, resize: "vertical", fontFamily: "inherit" }}
-      />
-
-      <div style={{ color: "#7A8C8E", fontSize: "0.85rem", marginBottom: "0.8rem" }}>
-        Tip: just write naturally, the agent will figure out the details.
+    <div className="page">
+      <div className="page-header">
+        <h1 className="page-title">Weekly Mileage Check-in</h1>
+        <p className="page-subtitle">
+          Tell the agent how this week went. It will automatically update your
+          mileage log in Google Sheets.
+        </p>
       </div>
 
-      <button
-        style={btnStyle("#3494BA", loading)}
-        onClick={handleCheckin}
-        disabled={loading}
-      >
-        {loading ? "Logging..." : "Log This Week"}
-      </button>
+      <div className="section">
+        <label className="form-label">Week Date</label>
+        <input
+          type="date"
+          value={weekDate}
+          onChange={(e) => setWeekDate(e.target.value)}
+          className="form-input"
+        />
+      </div>
+
+      <div className="section">
+        <label className="form-label">How did the week go?</label>
+        <textarea
+          rows={4}
+          placeholder='e.g. "All good, normal week" or "Philipp was sick on Tuesday and Thursday, and I drove an extra 30km to his grandma on Saturday."'
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          className="form-textarea"
+        />
+        <div className="form-helper">
+          Tip: just write naturally, the agent will figure out the details.
+        </div>
+      </div>
+
+      <div className="button-row">
+        <button
+          className="btn btn-primary"
+          onClick={handleCheckin}
+          disabled={loading}
+        >
+          {loading ? "Logging..." : "Log This Week"}
+        </button>
+      </div>
 
       {error && <StatusCard status="error" message={error} />}
 
@@ -119,7 +85,7 @@ export default function MileagePage() {
           status="logged"
           message={`Week of ${result.week_date} has been saved to your mileage log.`}
         >
-          <div style={{ marginTop: "0.8rem", fontSize: "0.9rem" }}>
+          <div className="section">
             <div style={{ marginBottom: "0.4rem" }}>
               <strong>Normal schedule: </strong>
               {parsed.normal_schedule_completed ? "Yes" : "No"}
@@ -129,7 +95,7 @@ export default function MileagePage() {
               <div style={{ marginBottom: "0.4rem" }}>
                 <strong>Sick days: </strong>
                 {parsed.sick_days.map((d) => (
-                  <span key={d} style={tagStyle}>{d}</span>
+                  <span key={d} className="tag">{d}</span>
                 ))}
               </div>
             )}
@@ -138,7 +104,7 @@ export default function MileagePage() {
               <div style={{ marginBottom: "0.4rem" }}>
                 <strong>Extra trips: </strong>
                 {parsed.extra_trips.map((t, i) => (
-                  <span key={i} style={tagStyle}>
+                  <span key={i} className="tag">
                     {t.reason} ({t.km} km)
                   </span>
                 ))}
@@ -146,9 +112,7 @@ export default function MileagePage() {
             )}
 
             {parsed.notes && (
-              <div style={{ marginTop: "0.4rem", color: "#7A8C8E" }}>
-                {parsed.notes}
-              </div>
+              <div className="form-helper">{parsed.notes}</div>
             )}
           </div>
         </StatusCard>

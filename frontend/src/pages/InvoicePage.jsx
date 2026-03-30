@@ -2,31 +2,6 @@ import React, { useState } from "react";
 import api from "../api/client";
 import StatusCard from "../components/StatusCard";
 
-const btnStyle = (color = "#3494BA", disabled = false) => ({
-  background: disabled ? "#CEDBE6" : color,
-  color: "#fff",
-  border: "none",
-  borderRadius: "8px",
-  padding: "0.7rem 1.4rem",
-  fontWeight: "600",
-  fontSize: "0.95rem",
-  cursor: disabled ? "not-allowed" : "pointer",
-  marginRight: "0.7rem",
-  marginTop: "0.5rem",
-});
-
-const inputStyle = {
-  display: "block",
-  width: "100%",
-  padding: "0.6rem",
-  borderRadius: "8px",
-  border: "1.5px solid #CEDBE6",
-  marginTop: "0.4rem",
-  marginBottom: "1rem",
-  fontSize: "0.95rem",
-  background: "#fff",
-};
-
 export default function InvoicePage() {
   const [tixiFile, setTixiFile] = useState(null);
   const [mealFile, setMealFile] = useState(null);
@@ -75,62 +50,62 @@ export default function InvoicePage() {
   }
 
   return (
-    <div>
-      <h1 style={{ fontSize: "1.5rem", marginBottom: "0.3rem" }}>
-        Invoice Matching
-      </h1>
-      <p style={{ color: "#7A8C8E", marginBottom: "1.8rem", fontSize: "0.95rem" }}>
-        Upload your Tixi-Taxi and day center meal invoices. The agent will match
-        them and prepare the submission for your approval.
-      </p>
+    <div className="page">
+      <div className="page-header">
+        <h1 className="page-title">Invoice Matching</h1>
+        <p className="page-subtitle">
+          Upload your Tixi-Taxi and day center meal invoices. The agent will
+          match them and prepare the submission for your approval.
+        </p>
+      </div>
 
-      <label style={{ fontWeight: "600", fontSize: "0.95rem" }}>
-        Tixi-Taxi Invoice (PDF)
-      </label>
-      <input
-        type="file"
-        accept=".pdf"
-        style={inputStyle}
-        onChange={(e) => setTixiFile(e.target.files[0])}
-      />
+      <div className="section">
+        <label className="form-label">Tixi-Taxi Invoice (PDF)</label>
+        <input
+          type="file"
+          accept=".pdf"
+          className="form-input"
+          onChange={(e) => setTixiFile(e.target.files[0])}
+        />
+      </div>
 
-      <label style={{ fontWeight: "600", fontSize: "0.95rem" }}>
-        Meal Invoice (PDF)
-      </label>
-      <input
-        type="file"
-        accept=".pdf"
-        style={inputStyle}
-        onChange={(e) => setMealFile(e.target.files[0])}
-      />
+      <div className="section">
+        <label className="form-label">Meal Invoice (PDF)</label>
+        <input
+          type="file"
+          accept=".pdf"
+          className="form-input"
+          onChange={(e) => setMealFile(e.target.files[0])}
+        />
+      </div>
 
-      <button
-        style={btnStyle("#3494BA", loading)}
-        onClick={handleRunAgent}
-        disabled={loading}
-      >
-        {loading ? "Running Agent..." : "Run Invoice Agent"}
-      </button>
+      <div className="button-row">
+        <button
+          className="btn btn-primary"
+          onClick={handleRunAgent}
+          disabled={loading}
+        >
+          {loading ? "Running Agent..." : "Run Invoice Agent"}
+        </button>
+      </div>
 
-      {error && (
-        <StatusCard status="error" message={error} />
-      )}
+      {error && <StatusCard status="error" message={error} />}
 
       {result && result.status === "pending_approval" && (
         <StatusCard
           status="pending_approval"
           message="The agent has matched both invoices. Review and approve to submit."
         >
-          <div style={{ marginTop: "0.8rem" }}>
+          <div className="button-row">
             <button
-              style={btnStyle("#75BDA7", loading)}
+              className="btn btn-primary"
               onClick={() => handleApproval(true)}
               disabled={loading}
             >
               Approve and Submit
             </button>
             <button
-              style={btnStyle("#7A8C8E", loading)}
+              className="btn btn-secondary"
               onClick={() => handleApproval(false)}
               disabled={loading}
             >

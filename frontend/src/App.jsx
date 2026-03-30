@@ -4,49 +4,39 @@ import InvoicePage from "./pages/InvoicePage";
 import MileagePage from "./pages/MileagePage";
 import SchedulePage from "./pages/SchedulePage";
 
-const navStyle = {
-  display: "flex",
-  gap: "1rem",
-  padding: "1rem 2rem",
-  background: "#3494BA",
-  alignItems: "center",
-};
-
-const logoStyle = {
-  color: "#fff",
-  fontWeight: "700",
-  fontSize: "1.2rem",
-  marginRight: "auto",
-  letterSpacing: "0.5px",
-};
-
-const linkStyle = ({ isActive }) => ({
-  color: isActive ? "#fff" : "#CEDBE6",
-  textDecoration: "none",
-  fontWeight: isActive ? "600" : "400",
-  fontSize: "0.95rem",
-  padding: "0.4rem 0.8rem",
-  borderRadius: "6px",
-  background: isActive ? "rgba(255,255,255,0.15)" : "transparent",
-});
-
 export default function App() {
   return (
-    <div>
-      <nav style={navStyle}>
-        <span style={logoStyle}>CareConnect</span>
-        <NavLink to="/" style={linkStyle} end>
+    <div className="app-shell">
+      <nav className="app-nav">
+        <span className="app-logo">CareConnect</span>
+        <NavLink
+          to="/"
+          className={({ isActive }) =>
+            `nav-link${isActive ? " active" : ""}`
+          }
+          end
+        >
           Invoice Matching
         </NavLink>
-        <NavLink to="/mileage" style={linkStyle}>
+        <NavLink
+          to="/mileage"
+          className={({ isActive }) =>
+            `nav-link${isActive ? " active" : ""}`
+          }
+        >
           Mileage Tracking
         </NavLink>
-        <NavLink to="/schedule" style={linkStyle}>
+        <NavLink
+          to="/schedule"
+          className={({ isActive }) =>
+            `nav-link${isActive ? " active" : ""}`
+          }
+        >
           Annual Schedule
         </NavLink>
       </nav>
 
-      <main style={{ padding: "2rem", maxWidth: "860px", margin: "0 auto" }}>
+      <main className="app-main">
         <Routes>
           <Route path="/" element={<InvoicePage />} />
           <Route path="/mileage" element={<MileagePage />} />
