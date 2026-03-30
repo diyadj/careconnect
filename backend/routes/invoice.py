@@ -1,7 +1,9 @@
 import os
 import httpx
+import uuid
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from pydantic import BaseModel
+from typing import Optional, Dict
 
 router = APIRouter()
 
@@ -11,14 +13,50 @@ WXO_INSTANCE_ID = os.getenv("WXO_INSTANCE_ID")
 WXO_AGENT_ID = os.getenv("WXO_AGENT_ID")
 WXO_REGION = os.getenv("WXO_REGION", "us-south")
 
-BASE_URL = f"https://api.{WXO_REGION}.assistant.watson.cloud.ibm.com"
+BASE_URL = "https://api.dl.watson-orchestrate.ibm.com"
+
+# In-memory session storage (file references)
+sessions_storage: Dict[str, Dict] = {}
 
 
 def get_auth_headers():
     return {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {WXO_API_KEY}",
+        "Authorization": WXO_API_KEY,
     }
+
+
+def extract_user_prompt(agent_response: dict) -> Optional[dict]:
+    """
+    Extracts user-facing prompts from agent response.
+    Filters out backend reasoning and returns only prompts requiring human interaction.
+    """
+    output = agent_response.get("output", {})
+    generic = output.get("generic", [])
+
+    if not generic:
+        return None
+
+    # Keywords indicating user-facing prompts (human-in-the-loop)
+    user_facing_keywords = [
+        "approve", "decline", "confirm", "submission",
+        "would you like", "do you", "please", "ready",
+        "matched", "success", "complete"
+    ]
+
+    for item in generic:
+        text = item.get("text", "")
+        text_lower = text.lower()
+
+        # Check if this message requires user interaction
+        if any(keyword in text_lower for keyword in user_facing_keywords):
+            return {
+                "message": text,
+                "type": "user_approval",
+                "requires_input": True
+            }
+
+    return None
 
 
 async def create_session() -> str:
@@ -56,59 +94,100 @@ async def send_message(session_id: str, message: str) -> dict:
         return response.json()
 
 
+class UploadResponse(BaseModel):
+    session_key: str
+    tixi_filename: str
+    meal_filename: str
+
+
+class StartAgentRequest(BaseModel):
+    session_key: str
+
+
 class ApprovalRequest(BaseModel):
     session_id: str
     approved: bool
 
 
-@router.post("/run")
-async def run_invoice_agent(
+@router.post("/upload", response_model=UploadResponse)
+async def upload_invoices(
     tixi_invoice: UploadFile = File(...),
     meal_invoice: UploadFile = File(...)
 ):
     """
-    Accepts two invoice PDFs, creates a watsonx session, and triggers the
-    invoice matching workflow. Returns the agent response and session ID so
-    the frontend can later send an approval.
+    Upload and store invoice files for later processing.
+    Returns a session_key to use when starting the agent.
     """
-    # Read file names to pass context to the agent
-    tixi_name = tixi_invoice.filename
-    meal_name = meal_invoice.filename
+    session_key = str(uuid.uuid4())
 
-    # TODO: In a real setup you would upload the PDFs to watsonx via the
-    # IDP pipeline or store them temporarily and pass a reference.
-    # For now we send the file names as context so you can test the flow.
-    session_id = await create_session()
-
-    message = (
-        f"I have two invoices to process: "
-        f"Tixi-Taxi invoice '{tixi_name}' and meal invoice '{meal_name}'. "
-        f"Please match them and prepare a submission package."
-    )
-
-    agent_response = await send_message(session_id, message)
+    # Store file references in memory
+    sessions_storage[session_key] = {
+        "tixi_filename": tixi_invoice.filename,
+        "meal_filename": meal_invoice.filename,
+        "tixi_file": tixi_invoice,
+        "meal_file": meal_invoice
+    }
 
     return {
-        "session_id": session_id,
-        "agent_response": agent_response,
-        "status": "pending_approval"
+        "session_key": session_key,
+        "tixi_filename": tixi_invoice.filename,
+        "meal_filename": meal_invoice.filename
+    }
+
+
+@router.post("/start")
+async def start_invoice_agent(request: StartAgentRequest):
+    """
+    Start the watsonx agent with pre-uploaded files.
+    Creates a watsonx session and initiates the matching workflow.
+    """
+    session_key = request.session_key
+
+    if session_key not in sessions_storage:
+        raise HTTPException(status_code=404, detail="Session key not found. Please upload files first.")
+
+    file_info = sessions_storage[session_key]
+    tixi_name = file_info["tixi_filename"]
+    meal_name = file_info["meal_filename"]
+
+    # Create watsonx session
+    wxo_session_id = await create_session()
+
+    # Initiate agent with file references
+    message = (
+        f"I have uploaded two invoices for processing: "
+        f"'{tixi_name}' (Tixi-Taxi transport) and '{meal_name}' (meal expenses). "
+        f"Please match these invoices for March 2026 and prepare a submission to the IV."
+    )
+
+    agent_response = await send_message(wxo_session_id, message)
+    user_prompt = extract_user_prompt(agent_response)
+
+    # Store the wxo session with the session key for later use
+    sessions_storage[session_key]["wxo_session_id"] = wxo_session_id
+
+    return {
+        "session_key": session_key,
+        "wxo_session_id": wxo_session_id,
+        "user_prompt": user_prompt,
+        "status": "pending_approval" if user_prompt else "processing"
     }
 
 
 @router.post("/approve")
 async def approve_submission(request: ApprovalRequest):
     """
-    Sends the father's approval (or rejection) back to the watsonx agent
-    so it can proceed with or cancel the submission.
+    Send approval/rejection to the watsonx agent.
+    Returns only user-facing prompts for next steps.
     """
-    decision = "Approved. Please proceed with the submission." if request.approved \
-        else "Rejected. Please cancel the submission."
+    decision = "Approve" if request.approved else "Cancel"
 
     agent_response = await send_message(request.session_id, decision)
+    user_prompt = extract_user_prompt(agent_response)
 
     return {
         "session_id": request.session_id,
         "approved": request.approved,
-        "agent_response": agent_response,
+        "user_prompt": user_prompt,
         "status": "submitted" if request.approved else "cancelled"
     }
