@@ -2,6 +2,7 @@ import React from "react";
 import { Routes, Route, NavLink } from "react-router-dom";
 import InvoicePage from "./pages/InvoicePage";
 import MileagePage from "./pages/MileagePage";
+import SchedulePage from "./pages/SchedulePage";
 
 const navStyle = {
   display: "flex",
@@ -40,12 +41,16 @@ export default function App() {
         <NavLink to="/mileage" style={linkStyle}>
           Mileage Tracking
         </NavLink>
+        <NavLink to="/schedule" style={linkStyle}>
+          Annual Schedule
+        </NavLink>
       </nav>
 
       <main style={{ padding: "2rem", maxWidth: "860px", margin: "0 auto" }}>
         <Routes>
           <Route path="/" element={<InvoicePage />} />
           <Route path="/mileage" element={<MileagePage />} />
+          <Route path="/schedule" element={<SchedulePage />} />
         </Routes>
       </main>
     </div>
