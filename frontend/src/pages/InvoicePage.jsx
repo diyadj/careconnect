@@ -3,53 +3,31 @@ import api from "../api/client";
 import StatusCard from "../components/StatusCard";
 
 export default function InvoicePage() {
-  const [tixiFile, setTixiFile] = useState(null);
-  const [mealFile, setMealFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [sessionKey, setSessionKey] = useState(null);
   const [wxoSessionId, setWxoSessionId] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [stage, setStage] = useState("upload"); // "upload" | "review" | "complete"
-
-  async function handleUploadFiles() {
-    if (!tixiFile || !mealFile) {
-      setError("Please upload both invoice files.");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    const form = new FormData();
-    form.append("tixi_invoice", tixiFile);
-    form.append("meal_invoice", mealFile);
-
-    try {
-      const res = await api.post("/invoice/upload", form, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      setSessionKey(res.data.session_key);
-      setStage("ready");
-      setError(null);
-    } catch (err) {
-      setError(err.response?.data?.detail || "Upload failed.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [messageInput, setMessageInput] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [stage, setStage] = useState("ready"); // "ready" | "review" | "complete"
 
   async function handleStartAgent() {
     setLoading(true);
     setError(null);
 
     try {
-      const res = await api.post("/invoice/start", {
-        session_key: sessionKey,
-      });
+      const res = await api.post("/invoice/start", sessionKey ? { session_key: sessionKey } : {});
+      setSessionKey(res.data.session_key || sessionKey);
       setWxoSessionId(res.data.wxo_session_id);
       setResult(res.data);
-      setStage("review");
+      if (res.data.status === "pending_approval") {
+        setStage("review");
+      } else if (res.data.status === "submitted") {
+        setStage("complete");
+      } else {
+        setStage("review");
+      }
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to start agent.");
     } finally {
@@ -67,7 +45,15 @@ export default function InvoicePage() {
         approved,
       });
       setResult(res.data);
-      setStage(approved ? "complete" : "cancelled");
+      if (res.data.status === "pending_approval") {
+        setStage("review");
+      } else if (res.data.status === "submitted") {
+        setStage("complete");
+      } else if (res.data.status === "cancelled") {
+        setStage("cancelled");
+      } else {
+        setStage("review");
+      }
     } catch (err) {
       setError(err.response?.data?.detail || "Approval failed.");
     } finally {
@@ -75,14 +61,59 @@ export default function InvoicePage() {
     }
   }
 
+  async function handleSendMessage(overrideMessage = null) {
+    if (!wxoSessionId) {
+      setError("No active agent session found. Start the agent first.");
+      return;
+    }
+
+    const messageToSend = (overrideMessage ?? messageInput).trim();
+    if (!messageToSend && selectedFiles.length === 0) {
+      setError("Type a message or attach files before sending.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const form = new FormData();
+      form.append("session_id", wxoSessionId);
+      form.append("message", messageToSend);
+      selectedFiles.forEach((file) => {
+        form.append("files", file);
+      });
+
+      const res = await api.post("/invoice/message", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setResult(res.data);
+      setMessageInput("");
+      setSelectedFiles([]);
+
+      if (res.data.status === "submitted") {
+        setStage("complete");
+      } else if (res.data.status === "cancelled") {
+        setStage("cancelled");
+      } else {
+        setStage("review");
+      }
+    } catch (err) {
+      setError(err.response?.data?.detail || "Failed to send message.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   function handleReset() {
-    setTixiFile(null);
-    setMealFile(null);
     setSessionKey(null);
     setWxoSessionId(null);
     setResult(null);
     setError(null);
-    setStage("upload");
+    setMessageInput("");
+    setSelectedFiles([]);
+    setStage("ready");
   }
 
   return (
@@ -90,55 +121,16 @@ export default function InvoicePage() {
       <div className="page-header">
         <h1 className="page-title">Invoice Matching</h1>
         <p className="page-subtitle">
-          Upload your Tixi-Taxi and day center meal invoices. The agent will
-          match them and prepare the submission for your approval.
+          Start the invoice workflow with the agent. It will guide you through
+          each step and request confirmations before submission.
         </p>
       </div>
 
-      {/* UPLOAD STAGE */}
-      {stage === "upload" && (
-        <>
-          <div className="section">
-            <label className="form-label">Tixi-Taxi Invoice (PDF)</label>
-            <input
-              type="file"
-              accept=".pdf"
-              className="form-input"
-              onChange={(e) => setTixiFile(e.target.files?.[0] || null)}
-              disabled={loading}
-            />
-            {tixiFile && <p className="text-sm text-gray-600">{tixiFile.name}</p>}
-          </div>
-
-          <div className="section">
-            <label className="form-label">Meal Invoice (PDF)</label>
-            <input
-              type="file"
-              accept=".pdf"
-              className="form-input"
-              onChange={(e) => setMealFile(e.target.files?.[0] || null)}
-              disabled={loading}
-            />
-            {mealFile && <p className="text-sm text-gray-600">{mealFile.name}</p>}
-          </div>
-
-          <div className="button-row">
-            <button
-              className="btn btn-primary"
-              onClick={handleUploadFiles}
-              disabled={loading || !tixiFile || !mealFile}
-            >
-              {loading ? "Uploading..." : "Upload Files"}
-            </button>
-          </div>
-        </>
-      )}
-
       {/* READY TO START AGENT */}
       {stage === "ready" && (
-        <StatusCard status="success" message="Files uploaded successfully!">
+        <StatusCard status="success" message="Ready to start invoice workflow.">
           <p className="text-sm mb-4">
-            Ready to start the invoice matching agent. Click below to proceed.
+            Click Start Agent and follow the prompts from your configured agent workflow.
           </p>
           <div className="button-row">
             <button
@@ -153,7 +145,7 @@ export default function InvoicePage() {
               onClick={handleReset}
               disabled={loading}
             >
-              Cancel & Re-upload
+              Reset
             </button>
           </div>
         </StatusCard>
@@ -162,20 +154,55 @@ export default function InvoicePage() {
       {/* REVIEW STAGE - User Approval */}
       {stage === "review" && result?.user_prompt && (
         <StatusCard status="pending_approval" message={result.user_prompt.message}>
+          <div className="section">
+            <label className="form-label">Your reply to agent</label>
+            <textarea
+              className="form-input"
+              rows={4}
+              value={messageInput}
+              onChange={(e) => setMessageInput(e.target.value)}
+              placeholder="Type instructions, approval text, or additional details..."
+              disabled={loading}
+            />
+          </div>
+
+          <div className="section">
+            <label className="form-label">Attach files (optional)</label>
+            <input
+              type="file"
+              className="form-input"
+              multiple
+              onChange={(e) => setSelectedFiles(Array.from(e.target.files || []))}
+              disabled={loading}
+            />
+            {selectedFiles.length > 0 && (
+              <p className="text-sm text-gray-600">
+                {selectedFiles.length} file(s) selected: {selectedFiles.map((f) => f.name).join(", ")}
+              </p>
+            )}
+          </div>
+
           <div className="button-row">
             <button
               className="btn btn-primary"
-              onClick={() => handleApproval(true)}
+              onClick={() => handleSendMessage()}
               disabled={loading}
             >
-              {loading ? "Processing..." : "Approve & Submit"}
+              {loading ? "Processing..." : "Send To Agent"}
             </button>
             <button
               className="btn btn-secondary"
-              onClick={() => handleApproval(false)}
+              onClick={() => handleSendMessage("Cancel")}
               disabled={loading}
             >
               Cancel
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => handleSendMessage("Approve")}
+              disabled={loading}
+            >
+              Quick Approve
             </button>
           </div>
         </StatusCard>
