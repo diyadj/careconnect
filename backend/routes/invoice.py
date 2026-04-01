@@ -4,6 +4,8 @@ import uuid
 import time
 import asyncio
 import json
+import base64
+from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi import Form
 from pydantic import BaseModel
@@ -26,6 +28,7 @@ WXO_AUTH_TYPE = os.getenv("WXO_AUTH_TYPE", "mcsp")
 IBM_IAM_URL = os.getenv("IBM_IAM_URL", "https://iam.cloud.ibm.com")
 IBM_MCSP_IAM_URL = os.getenv("IBM_MCSP_IAM_URL", "https://iam.platform.saas.ibm.com")
 IBM_MCSP_V2_IAM_URL = os.getenv("IBM_MCSP_V2_IAM_URL", "https://account-iam.platform.saas.ibm.com")
+MOCK_INVOICE_DIR = os.getenv("MOCK_INVOICE_DIR", str(Path(__file__).resolve().parents[1] / "mock_data" / "invoices"))
 
 BASE_URL = "https://api.dl.watson-orchestrate.ibm.com"
 
@@ -61,6 +64,68 @@ def get_upload_endpoint_candidates() -> List[str]:
         f"{base}/v1/upload-to-s3/",
         f"{base}/v1/upload-to-s3",
     ]
+
+
+def load_mock_invoice_payloads() -> List[dict]:
+    invoice_dir = Path(MOCK_INVOICE_DIR)
+    if not invoice_dir.exists() or not invoice_dir.is_dir():
+        return []
+
+    supported_ext = {".pdf", ".png", ".jpg", ".jpeg"}
+    files = [
+        p for p in sorted(invoice_dir.iterdir())
+        if p.is_file() and p.suffix.lower() in supported_ext
+    ]
+    if not files:
+        return []
+
+    tixi_candidate = next((p for p in files if any(k in p.name.lower() for k in ["tixi", "taxi", "transport"])), None)
+    meal_candidate = next((p for p in files if "meal" in p.name.lower()), None)
+
+    # Fallback: if naming is not explicit, use first two files.
+    if not tixi_candidate and len(files) >= 1:
+        tixi_candidate = files[0]
+    if not meal_candidate and len(files) >= 2:
+        meal_candidate = files[1]
+
+    selected = []
+    if tixi_candidate:
+        selected.append({"path": tixi_candidate, "alias": f"TixiTaxi_Invoice{tixi_candidate.suffix.lower()}"})
+    if meal_candidate and meal_candidate != tixi_candidate:
+        selected.append({"path": meal_candidate, "alias": f"MealInvoice{meal_candidate.suffix.lower()}"})
+
+    payloads = []
+    for item in selected:
+        payloads.append(
+            {
+                "filename": item["alias"],
+                "source_filename": item["path"].name,
+                "content": item["path"].read_bytes(),
+            }
+        )
+    return payloads
+
+
+def build_base64_attachments_block(file_payloads: List[dict]) -> str:
+    payload = []
+    for fp in file_payloads:
+        filename = fp.get("filename", "uploaded_file")
+        ext = Path(filename).suffix.lower()
+        mime_type = {
+            ".pdf": "application/pdf",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+        }.get(ext, "application/octet-stream")
+
+        payload.append(
+            {
+                "filename": filename,
+                "mime_type": mime_type,
+                "content_base64": base64.b64encode(fp.get("content", b"")).decode("utf-8"),
+            }
+        )
+    return json.dumps(payload)
 
 
 async def resolve_access_token() -> str:
@@ -214,6 +279,80 @@ def extract_user_prompt(agent_response: dict) -> Optional[dict]:
         "type": "assistant_message",
         "requires_input": False,
     }
+
+
+def extract_text_from_message(msg: dict) -> str:
+    if not isinstance(msg, dict):
+        return ""
+
+    content = msg.get("content")
+    if isinstance(content, str):
+        text = content
+    elif isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict):
+                candidate = item.get("text") or item.get("content")
+                if isinstance(candidate, str) and candidate.strip():
+                    parts.append(candidate)
+        text = "\n".join(parts)
+    else:
+        text = ""
+
+    # Hide large base64 payloads from UI history.
+    marker = "FILES_BASE64_JSON:"
+    if marker in text:
+        text = text.split(marker, 1)[0].strip() + "\n[Attached files payload omitted]"
+
+    return text.strip()
+
+
+def is_flow_start_message(text: str) -> bool:
+    lowered = (text or "").lower()
+    hints = [
+        "a new flow has started",
+        "chat session is currently dedicated to the flow",
+        "will resume once the flow is complete",
+        "flow has started",
+    ]
+    return any(hint in lowered for hint in hints)
+
+
+def summarize_thread_messages(messages: List[dict]) -> List[dict]:
+    summary = []
+    for msg in messages:
+        role = msg.get("role", "assistant") if isinstance(msg, dict) else "assistant"
+        text = extract_text_from_message(msg)
+        if not text:
+            continue
+        summary.append({"role": role, "text": text})
+    return summary
+
+
+def pick_latest_meaningful_prompt(messages: List[dict]) -> Optional[dict]:
+    fallback_text = None
+    for msg in reversed(messages):
+        if not isinstance(msg, dict) or msg.get("role") != "assistant":
+            continue
+        text = extract_text_from_message(msg)
+        if not text:
+            continue
+        if not is_flow_start_message(text):
+            return {
+                "message": text,
+                "type": "user_approval" if "approve" in text.lower() else "assistant_message",
+                "requires_input": "approve" in text.lower() or "upload" in text.lower(),
+            }
+        if fallback_text is None:
+            fallback_text = text
+
+    if fallback_text:
+        return {
+            "message": fallback_text,
+            "type": "assistant_message",
+            "requires_input": False,
+        }
+    return None
 
 
 def determine_flow_status(user_prompt: Optional[dict], approved: Optional[bool] = None) -> str:
@@ -417,6 +556,26 @@ async def get_latest_assistant_message(thread_id: str) -> Optional[dict]:
     return None
 
 
+async def get_thread_messages(thread_id: str) -> List[dict]:
+    ensure_wxo_config()
+    url = get_threads_endpoint(thread_id)
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(url, headers=await get_auth_headers())
+        except httpx.RequestError as exc:
+            raise HTTPException(
+                status_code=502,
+                detail=f"Failed to reach watsonx service: {exc}",
+            ) from exc
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail=f"Failed to fetch thread messages: {response.text}")
+
+    payload = response.json()
+    messages = payload.get("data") if isinstance(payload, dict) else payload
+    return messages if isinstance(messages, list) else []
+
+
 class UploadResponse(BaseModel):
     session_key: str
     tixi_filename: str
@@ -484,7 +643,40 @@ async def start_invoice_agent(request: StartAgentRequest):
         "show me the draft email content for confirmation, and only send after I approve."
     )
 
-    run_response = await create_run(message)
+    mock_file_payloads = load_mock_invoice_payloads()
+    uploaded_file_urls = None
+    used_mock_files = False
+    mock_source_files = []
+    mock_delivery_method = "none"
+
+    if mock_file_payloads:
+        used_mock_files = True
+        mock_source_files = [f.get("source_filename") for f in mock_file_payloads if f.get("source_filename")]
+        message = (
+            "I have already scanned two invoices from the user's email inbox (mock source). "
+            "Please process these provided files as: TixiTaxi_Invoice and MealInvoice, "
+            "run matching, then show the draft email for my approval before sending."
+        )
+
+        try:
+            uploaded_file_urls = await upload_files_to_wxo(mock_file_payloads, text="mock email invoice scan")
+        except HTTPException:
+            uploaded_file_urls = None
+
+        if uploaded_file_urls:
+            mock_delivery_method = "orchestrate_upload"
+        else:
+            mock_delivery_method = "base64_fallback"
+            attachments_block = build_base64_attachments_block(mock_file_payloads)
+            message = (
+                f"{message}\n\n"
+                "Attached files are included below as base64 payloads. "
+                "Please decode and use them directly for processing. "
+                "Do not ask the user to upload these files again unless decoding fails.\n"
+                f"FILES_BASE64_JSON: {attachments_block}"
+            )
+
+    run_response = await create_run(message, file_urls=uploaded_file_urls)
     thread_id = run_response.get("thread_id")
     run_id = run_response.get("run_id")
 
@@ -506,6 +698,9 @@ async def start_invoice_agent(request: StartAgentRequest):
         "run_id": run_id,
         "user_prompt": user_prompt,
         "status": determine_flow_status(user_prompt),
+        "mock_mode": used_mock_files,
+        "mock_source_files": mock_source_files,
+        "mock_delivery_method": mock_delivery_method,
     }
 
 
@@ -547,16 +742,36 @@ async def send_invoice_message(
         raise HTTPException(status_code=400, detail="Please provide a message or at least one file.")
 
     uploaded_file_urls = None
+    fallback_message_parts = []
     if files:
         file_payloads = []
         for f in files:
+            file_bytes = await f.read()
             file_payloads.append(
                 {
                     "filename": f.filename or "uploaded_file",
-                    "content": await f.read(),
+                    "content": file_bytes,
                 }
             )
-        uploaded_file_urls = await upload_files_to_wxo(file_payloads, text="invoice follow-up upload")
+            fallback_message_parts.append({
+                "filename": f.filename or "uploaded_file",
+                "content": file_bytes,
+            })
+
+        try:
+            uploaded_file_urls = await upload_files_to_wxo(file_payloads, text="invoice follow-up upload")
+        except HTTPException:
+            # Fallback for tenants where upload-to-s3 endpoint is unavailable.
+            uploaded_file_urls = None
+
+    if fallback_message_parts and not uploaded_file_urls:
+        attachments_block = build_base64_attachments_block(fallback_message_parts)
+        normalized_message = (
+            f"{normalized_message}\n\n"
+            "Attached files are included below as base64 payloads. "
+            "Please decode and use them directly for processing.\n"
+            f"FILES_BASE64_JSON: {attachments_block}"
+        ).strip()
 
     run_response = await create_run(
         normalized_message,
@@ -573,6 +788,19 @@ async def send_invoice_message(
     return {
         "session_id": session_id,
         "run_id": run_id,
+        "user_prompt": user_prompt,
+        "status": determine_flow_status(user_prompt),
+    }
+
+
+@router.get("/messages/{session_id}")
+async def get_invoice_messages(session_id: str):
+    """Get thread message history and best current prompt for UI polling."""
+    messages = await get_thread_messages(session_id)
+    user_prompt = pick_latest_meaningful_prompt(messages)
+    return {
+        "session_id": session_id,
+        "messages": summarize_thread_messages(messages),
         "user_prompt": user_prompt,
         "status": determine_flow_status(user_prompt),
     }

@@ -54,6 +54,7 @@ a {
   padding: 1.1rem 2rem;
   background: rgba(255, 255, 255, 0.78);
   border-bottom: 1px solid var(--border);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
 }
 
@@ -290,6 +291,126 @@ input[type="file"]::file-selector-button {
 .status-card p {
   font-size: 0.9rem;
   margin-top: 0.35rem;
+}
+
+.agent-message-card {
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(246, 196, 83, 0.45);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.agent-message-label {
+  margin: 0 0 0.35rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.agent-message-text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.45;
+  font-size: 0.95rem;
+  font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.history-item {
+  border-radius: 10px;
+  padding: 0.55rem 0.7rem;
+  line-height: 1.35;
+  font-size: 0.9rem;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.history-agent {
+  background: #fffaf0;
+  border: 1px solid #f6e7bf;
+}
+
+.history-user {
+  background: #edf7fb;
+  border: 1px solid #cce8f5;
+}
+
+.history-role {
+  font-weight: 700;
+  min-width: 3rem;
+}
+
+.chat-shell {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: #fcfdfd;
+  padding: 1rem;
+}
+
+.chat-status-row {
+  margin-bottom: 0.75rem;
+}
+
+.chat-stream {
+  min-height: 180px;
+  max-height: 420px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding-right: 0.2rem;
+}
+
+.bubble {
+  max-width: 88%;
+  border-radius: 12px;
+  padding: 0.65rem 0.8rem;
+  line-height: 1.4;
+  font-size: 0.92rem;
+  white-space: pre-wrap;
+}
+
+.bubble strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.8rem;
+}
+
+.bubble-agent {
+  background: #fff8e8;
+  border: 1px solid #f2db9c;
+  color: #6f4b00;
+  align-self: flex-start;
+}
+
+.bubble-user {
+  background: #eaf6fb;
+  border: 1px solid #b9deed;
+  color: #173f52;
+  align-self: flex-end;
+}
+
+.bubble-system {
+  background: #f1f5f9;
+  border: 1px solid #d6dee8;
+  color: #354655;
+  align-self: center;
+}
+
+.chat-composer {
+  margin-top: 0.95rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.9rem;
 }
 
 .status-pending {
