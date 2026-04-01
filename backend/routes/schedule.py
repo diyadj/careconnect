@@ -43,6 +43,10 @@ class ScheduleSendRequest(BaseModel):
     year: int
 
 
+class ScheduleResetRequest(BaseModel):
+    year: Optional[int] = None
+
+
 @router.post("/setup")
 def setup_annual_schedule(request: ScheduleSetupRequest):
     """
@@ -143,4 +147,29 @@ def send_schedule_pdf(request: ScheduleSendRequest):
         "status": "sent",
         "year": request.year,
         "message": "Email has been sent."
+    }
+
+
+@router.post("/reset")
+def reset_schedule(request: ScheduleResetRequest):
+    """
+    Delete an annual schedule so the demo can start from a clean slate.
+    Defaults to the current year when year is not provided.
+    """
+    target_year = str(request.year) if request.year else str(datetime.now().year)
+    schedule = read_schedule()
+
+    if target_year not in schedule:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No schedule found for {target_year}. Nothing to reset."
+        )
+
+    del schedule[target_year]
+    write_schedule(schedule)
+
+    return {
+        "status": "reset",
+        "year": int(target_year),
+        "message": f"Schedule for {target_year} has been reset."
     }

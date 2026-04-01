@@ -17,6 +17,7 @@ export default function SchedulePage() {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [result, setResult] = useState(null);
   const [sendResult, setSendResult] = useState(null);
   const [error, setError] = useState(null);
@@ -107,6 +108,36 @@ export default function SchedulePage() {
     }
   }
 
+  async function handleResetSchedule() {
+    const shouldReset = window.confirm(
+      `Reset ${currentYear} schedule and clear this form for demo?`
+    );
+    if (!shouldReset) return;
+
+    setResetting(true);
+    setError(null);
+    setResult(null);
+    setSendResult(null);
+
+    try {
+      await api.post("/schedule/reset", { year: currentYear });
+    } catch (err) {
+      const statusCode = err.response?.status;
+      if (statusCode !== 404) {
+        setError(err.response?.data?.detail || "Failed to reset schedule.");
+        return;
+      }
+    } finally {
+      setResetting(false);
+    }
+
+    setExisting(null);
+    setSelectedDays([]);
+    setClosureWeek("");
+    setClosureWeeks([]);
+    setNotes("");
+  }
+
   return (
     <div className="page">
       <div className="page-header">
@@ -192,9 +223,16 @@ export default function SchedulePage() {
         <button
           className="btn btn-primary"
           onClick={handleSave}
-          disabled={loading}
+          disabled={loading || resetting}
         >
           {loading ? "Saving..." : existing ? "Update Schedule" : "Save Schedule"}
+        </button>
+        <button
+          className="btn btn-secondary"
+          onClick={handleResetSchedule}
+          disabled={loading || sending || resetting}
+        >
+          {resetting ? "Resetting..." : "Reset for Demo"}
         </button>
       </div>
 
@@ -267,7 +305,7 @@ export default function SchedulePage() {
             <button
               className="btn btn-primary"
               onClick={handleSendSchedule}
-              disabled={sending}
+              disabled={sending || resetting}
             >
               {sending ? "Sending..." : "Send Schedule PDF"}
             </button>

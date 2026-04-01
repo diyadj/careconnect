@@ -277,6 +277,29 @@ def is_flow_start_message(text: str) -> bool:
     return any(hint in lowered for hint in hints)
 
 
+def normalize_assistant_text_for_dedupe(text: str) -> str:
+    return " ".join((text or "").lower().split())
+
+
+def is_probable_duplicate_assistant_prompt(previous_text: str, current_text: str) -> bool:
+    prev = normalize_assistant_text_for_dedupe(previous_text)
+    curr = normalize_assistant_text_for_dedupe(current_text)
+    if not prev or not curr:
+        return False
+
+    if prev == curr:
+        return True
+
+    # Some Orchestrate responses emit truncated or near-identical retries.
+    shorter, longer = (prev, curr) if len(prev) <= len(curr) else (curr, prev)
+    if len(shorter) >= 16 and longer.startswith(shorter):
+        return True
+    if len(longer) >= 16 and shorter in longer and abs(len(longer) - len(shorter)) <= 8:
+        return True
+
+    return False
+
+
 def summarize_thread_messages(messages: List[dict]) -> List[dict]:
     summary = []
     for msg in messages:
@@ -284,6 +307,14 @@ def summarize_thread_messages(messages: List[dict]) -> List[dict]:
         text = extract_text_from_message(msg)
         if not text:
             continue
+
+        if role == "assistant" and summary:
+            previous = summary[-1]
+            if previous.get("role") == "assistant" and is_probable_duplicate_assistant_prompt(
+                previous.get("text", ""), text
+            ):
+                continue
+
         summary.append({"role": role, "text": text})
     return summary
 
@@ -595,12 +626,7 @@ async def start_invoice_agent(request: StartAgentRequest):
     if session_key not in sessions_storage:
         sessions_storage[session_key] = {}
 
-    message = (
-        "Let's begin the monthly invoice workflow from scratch. "
-        "Please guide me step-by-step with human approvals before each major action. "
-        "Ask me to upload required invoice files first, then perform matching, "
-        "show me the draft email content for confirmation, and only send after I approve."
-    )
+    message = "I want to match and submit my invoices"
 
     run_response = await create_run(message)
     thread_id = run_response.get("thread_id")
