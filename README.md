@@ -1,20 +1,24 @@
 # CareConnect - Prototype 1
 
-An agentic AI assistant that helps families managing disability care admin.
-Built as a hybrid system: IBM watsonx Orchestrate handles invoice matching (Use Case 1),
-and a Python/Claude backend handles mileage tracking (Use Case 2).
+An agentic AI assistant that helps families manage disability care admin.
+Built as a hybrid system:
+
+- IBM watsonx Orchestrate handles invoice matching and submission (Use Case 1)
+- Python/Claude handles mileage check-ins and Google Sheets logging (Use Case 2)
+- Annual schedule setup supports invoice validation context and demo-friendly reset
 
 ---
 
 ## Project Structure
 
-```
+```text
 careconnect/
   backend/
     main.py                   # FastAPI app entry point
     routes/
       invoice.py              # UC1: calls watsonx Orchestrate agent
       mileage.py              # UC2: weekly check-in and mileage log endpoints
+      schedule.py             # Annual schedule setup, update, send, and reset
     agents/
       mileage_agent.py        # Claude-powered trip report parser
     tools/
@@ -26,6 +30,7 @@ careconnect/
       pages/
         InvoicePage.jsx       # UC1 upload and approval UI
         MileagePage.jsx       # UC2 weekly check-in UI
+        SchedulePage.jsx      # Annual schedule setup and reset-for-demo UI
       components/
         StatusCard.jsx        # Reusable status feedback component
       api/
@@ -64,6 +69,7 @@ cp .env.example .env
 ```
 
 Open `.env` and add:
+
 - Your watsonx Orchestrate API key, instance ID, and agent ID (from the Deploy tab in wxO)
 - Your Anthropic API key (from console.anthropic.com)
 - Your Google Sheet ID (from the sheet URL)
@@ -115,12 +121,28 @@ The frontend will be running at `http://localhost:5173`.
 ## API Endpoints
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| ------ | -------- | ----------- |
 | GET | `/` | Health check |
-| POST | `/api/invoice/run` | Upload two PDFs and trigger the watsonx agent |
+| POST | `/api/invoice/upload` | Upload meal/taxi invoice files and create local session payload |
+| POST | `/api/invoice/start` | Start watsonx thread (sends: `I want to match and submit my invoices`) |
 | POST | `/api/invoice/approve` | Send approval or rejection back to the agent |
+| POST | `/api/invoice/message` | Continue invoice thread with message and optional file attachments |
+| GET | `/api/invoice/messages/{session_id}` | Poll invoice thread messages and latest actionable prompt |
 | POST | `/api/mileage/checkin` | Submit weekly trip report, logs to Google Sheets |
 | GET | `/api/mileage/summary` | Get yearly mileage summary (placeholder) |
+| POST | `/api/schedule/setup` | Create annual schedule for a year |
+| GET | `/api/schedule/current?year=YYYY` | Read current schedule for a year |
+| PATCH | `/api/schedule/update` | Update existing annual schedule |
+| POST | `/api/schedule/send` | Send schedule PDF/email (mocked) |
+| POST | `/api/schedule/reset` | Reset yearly schedule for clean demo reruns |
+
+---
+
+## Demo Notes
+
+- Invoice start prompt is intentionally fixed to: `I want to match and submit my invoices`.
+- Invoice chat polling deduplicates near-identical assistant prompts to reduce repeated upload asks in UI.
+- In Annual Schedule page, use **Reset for Demo** to clear the current year and start from scratch.
 
 ---
 
@@ -128,6 +150,5 @@ The frontend will be running at `http://localhost:5173`.
 
 - Real Gmail inbox monitoring (currently simulated via manual PDF upload)
 - Automated weekly scheduler for the mileage check-in
-- Annual schedule planning phase for UC1
 - Supervisor agent routing between UC1 and UC2
 - User authentication
