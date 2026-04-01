@@ -70,12 +70,12 @@ export default function MileagePage() {
 
       <div className="button-row">
         <button
-          className="btn btn-primary"
-          onClick={handleCheckin}
-          disabled={loading}
+          className="btn btn-muted"
+          disabled
         >
-          {loading ? "Logging..." : "Log This Week"}
+          Log This Week
         </button>
+        <span className="coming-soon-label">Coming soon (Milestone 2 feature).</span>
       </div>
 
       {error && <StatusCard status="error" message={error} />}

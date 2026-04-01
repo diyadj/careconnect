@@ -1,0 +1,19 @@
+{
+  "2026": {
+    "year": 2026,
+    "regular_days": [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday"
+    ],
+    "closure_weeks": [
+      "2026-04-06",
+      "2026-06-15",
+      "2026-06-22"
+    ],
+    "notes": "Spring Break from 06/04 - 12/05 \nSummer Break from  15/06 to 22/06",
+    "created_at": "2026-04-01T16:33:26.984532",
+    "updated_at": "2026-04-01T16:33:26.984532"
+  }
+}

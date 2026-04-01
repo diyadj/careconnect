@@ -10,6 +10,14 @@ export default function App() {
       <nav className="app-nav">
         <span className="app-logo">CareConnect</span>
         <NavLink
+          to="/schedule"
+          className={({ isActive }) =>
+            `nav-link${isActive ? " active" : ""}`
+          }
+        >
+          Annual Schedule
+        </NavLink>
+        <NavLink
           to="/"
           className={({ isActive }) =>
             `nav-link${isActive ? " active" : ""}`
@@ -25,14 +33,6 @@ export default function App() {
           }
         >
           Mileage Tracking
-        </NavLink>
-        <NavLink
-          to="/schedule"
-          className={({ isActive }) =>
-            `nav-link${isActive ? " active" : ""}`
-          }
-        >
-          Annual Schedule
         </NavLink>
       </nav>
 

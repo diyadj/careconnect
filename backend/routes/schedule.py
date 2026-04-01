@@ -39,6 +39,10 @@ class ScheduleUpdateRequest(BaseModel):
     notes: Optional[str] = None
 
 
+class ScheduleSendRequest(BaseModel):
+    year: int
+
+
 @router.post("/setup")
 def setup_annual_schedule(request: ScheduleSetupRequest):
     """
@@ -114,4 +118,29 @@ def update_schedule(request: ScheduleUpdateRequest):
     return {
         "status": "updated",
         "schedule": schedule[year_key]
+    }
+
+
+@router.post("/send")
+def send_schedule_pdf(request: ScheduleSendRequest):
+    """
+    Mock endpoint for sending the saved schedule PDF to taxi company by email.
+    """
+    schedule = read_schedule()
+    year_key = str(request.year)
+
+    if year_key not in schedule:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No schedule found for {request.year}. Save it first before sending."
+        )
+
+    # TODO: Enable actual email sending via email agent/API after configuration.
+    # from agents.email_agent import send_schedule_pdf_email
+    # send_schedule_pdf_email(schedule=schedule[year_key], recipient="tixi_taxi_company@example.com")
+
+    return {
+        "status": "sent",
+        "year": request.year,
+        "message": "Email has been sent."
     }
