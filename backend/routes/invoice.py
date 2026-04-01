@@ -28,7 +28,6 @@ WXO_AUTH_TYPE = os.getenv("WXO_AUTH_TYPE", "mcsp")
 IBM_IAM_URL = os.getenv("IBM_IAM_URL", "https://iam.cloud.ibm.com")
 IBM_MCSP_IAM_URL = os.getenv("IBM_MCSP_IAM_URL", "https://iam.platform.saas.ibm.com")
 IBM_MCSP_V2_IAM_URL = os.getenv("IBM_MCSP_V2_IAM_URL", "https://account-iam.platform.saas.ibm.com")
-MOCK_INVOICE_DIR = os.getenv("MOCK_INVOICE_DIR", str(Path(__file__).resolve().parents[1] / "mock_data" / "invoices"))
 
 BASE_URL = "https://api.dl.watson-orchestrate.ibm.com"
 
@@ -64,46 +63,6 @@ def get_upload_endpoint_candidates() -> List[str]:
         f"{base}/v1/upload-to-s3/",
         f"{base}/v1/upload-to-s3",
     ]
-
-
-def load_mock_invoice_payloads() -> List[dict]:
-    invoice_dir = Path(MOCK_INVOICE_DIR)
-    if not invoice_dir.exists() or not invoice_dir.is_dir():
-        return []
-
-    supported_ext = {".pdf", ".png", ".jpg", ".jpeg"}
-    files = [
-        p for p in sorted(invoice_dir.iterdir())
-        if p.is_file() and p.suffix.lower() in supported_ext
-    ]
-    if not files:
-        return []
-
-    tixi_candidate = next((p for p in files if any(k in p.name.lower() for k in ["tixi", "taxi", "transport"])), None)
-    meal_candidate = next((p for p in files if "meal" in p.name.lower()), None)
-
-    # Fallback: if naming is not explicit, use first two files.
-    if not tixi_candidate and len(files) >= 1:
-        tixi_candidate = files[0]
-    if not meal_candidate and len(files) >= 2:
-        meal_candidate = files[1]
-
-    selected = []
-    if tixi_candidate:
-        selected.append({"path": tixi_candidate, "alias": f"TixiTaxi_Invoice{tixi_candidate.suffix.lower()}"})
-    if meal_candidate and meal_candidate != tixi_candidate:
-        selected.append({"path": meal_candidate, "alias": f"MealInvoice{meal_candidate.suffix.lower()}"})
-
-    payloads = []
-    for item in selected:
-        payloads.append(
-            {
-                "filename": item["alias"],
-                "source_filename": item["path"].name,
-                "content": item["path"].read_bytes(),
-            }
-        )
-    return payloads
 
 
 def build_base64_attachments_block(file_payloads: List[dict]) -> str:
@@ -643,40 +602,7 @@ async def start_invoice_agent(request: StartAgentRequest):
         "show me the draft email content for confirmation, and only send after I approve."
     )
 
-    mock_file_payloads = load_mock_invoice_payloads()
-    uploaded_file_urls = None
-    used_mock_files = False
-    mock_source_files = []
-    mock_delivery_method = "none"
-
-    if mock_file_payloads:
-        used_mock_files = True
-        mock_source_files = [f.get("source_filename") for f in mock_file_payloads if f.get("source_filename")]
-        message = (
-            "I have already scanned two invoices from the user's email inbox (mock source). "
-            "Please process these provided files as: TixiTaxi_Invoice and MealInvoice, "
-            "run matching, then show the draft email for my approval before sending."
-        )
-
-        try:
-            uploaded_file_urls = await upload_files_to_wxo(mock_file_payloads, text="mock email invoice scan")
-        except HTTPException:
-            uploaded_file_urls = None
-
-        if uploaded_file_urls:
-            mock_delivery_method = "orchestrate_upload"
-        else:
-            mock_delivery_method = "base64_fallback"
-            attachments_block = build_base64_attachments_block(mock_file_payloads)
-            message = (
-                f"{message}\n\n"
-                "Attached files are included below as base64 payloads. "
-                "Please decode and use them directly for processing. "
-                "Do not ask the user to upload these files again unless decoding fails.\n"
-                f"FILES_BASE64_JSON: {attachments_block}"
-            )
-
-    run_response = await create_run(message, file_urls=uploaded_file_urls)
+    run_response = await create_run(message)
     thread_id = run_response.get("thread_id")
     run_id = run_response.get("run_id")
 
@@ -698,9 +624,6 @@ async def start_invoice_agent(request: StartAgentRequest):
         "run_id": run_id,
         "user_prompt": user_prompt,
         "status": determine_flow_status(user_prompt),
-        "mock_mode": used_mock_files,
-        "mock_source_files": mock_source_files,
-        "mock_delivery_method": mock_delivery_method,
     }
 
 

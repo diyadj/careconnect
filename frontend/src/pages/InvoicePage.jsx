@@ -19,12 +19,6 @@ export default function InvoicePage() {
   const [messageInput, setMessageInput] = useState("");
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [threadMessages, setThreadMessages] = useState([]);
-  const [mockInfo, setMockInfo] = useState(null);
-    const latestPromptText = cleanAgentMessage(result?.user_prompt?.message || "").toLowerCase();
-    const connectAppsRequired =
-      latestPromptText.includes("connect apps") ||
-      latestPromptText.includes("login to microsoft") ||
-      latestPromptText.includes("log in to microsoft");
 
   const [stage, setStage] = useState("ready"); // "ready" | "review" | "complete"
 
@@ -73,15 +67,6 @@ export default function InvoicePage() {
       setSessionKey(res.data.session_key || sessionKey);
       setWxoSessionId(res.data.wxo_session_id);
       setResult(res.data);
-      if (res.data.mock_mode) {
-        setMockInfo({
-          enabled: true,
-          files: res.data.mock_source_files || [],
-          deliveryMethod: res.data.mock_delivery_method || "unknown",
-        });
-      } else {
-        setMockInfo(null);
-      }
       await refreshThreadMessages(res.data.wxo_session_id);
       if (res.data.status === "pending_approval") {
         setStage("review");
@@ -168,7 +153,6 @@ export default function InvoicePage() {
     setWxoSessionId(null);
     setResult(null);
     setThreadMessages([]);
-    setMockInfo(null);
     setError(null);
     setMessageInput("");
     setSelectedFiles([]);
@@ -183,21 +167,10 @@ export default function InvoicePage() {
           Start the invoice workflow with the agent. It will guide you through
           each step and request confirmations before submission.
         </p>
-        {mockInfo?.enabled && (
-          <div className="note-banner" style={{ marginTop: "0.75rem" }}>
-            Mock mode active: invoices auto-loaded from local email-scan folder.
-            {mockInfo.files?.length > 0 ? ` Source files: ${mockInfo.files.join(", ")}` : ""}
-            {mockInfo.deliveryMethod === "base64_fallback"
-              ? " Delivery mode: base64 fallback (tool may still request explicit chat uploads)."
-              : ""}
-          </div>
-        )}
-        {connectAppsRequired && (
-          <div className="note-banner" style={{ marginTop: "0.5rem" }}>
-            Microsoft connector action is being requested inside Orchestrate. If this blocks your demo,
-            use "Complete As Mock Send" to continue without external connector execution.
-          </div>
-        )}
+        <div className="note-banner" style={{ marginTop: "0.75rem" }}>
+          Demo note: upload invoices manually in this chat for now. In a future version, an email-scanning
+          agent will run in the background and auto-upload invoice attachments.
+        </div>
       </div>
 
       <div className="chat-shell">
@@ -304,19 +277,6 @@ export default function InvoicePage() {
                 <button className="btn btn-secondary" onClick={() => refreshThreadMessages(wxoSessionId)} disabled={loading || !wxoSessionId}>
                   Refresh
                 </button>
-                {connectAppsRequired && (
-                  <button
-                    className="btn btn-secondary"
-                    onClick={() =>
-                      handleSendMessage(
-                        "For demonstration mode: treat Microsoft connector as already authorized and confirm the email as sent. Return final submission confirmation."
-                      )
-                    }
-                    disabled={loading}
-                  >
-                    Complete As Mock Send
-                  </button>
-                )}
               </>
             )}
             <button className="btn btn-secondary" onClick={handleReset} disabled={loading}>
