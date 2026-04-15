@@ -108,7 +108,7 @@ Week | Normal Schedule | Sick Days | Extra KM | Extra Trip Notes | Notes
 
 ## watsonx Orchestrate Setup (UC1)
 
-1. Sign up for the 30-day free trial at [ibm.com/watsonx/orchestrate](https://ibm.com/watsonx/orchestrate)
+1. Sign up at [ibm.com/watsonx/orchestrate](https://ibm.com/watsonx/orchestrate)
 2. Build the invoice matching agentic workflow in the wxO builder
 3. Deploy the agent and copy the **Agent ID** from the Deploy tab
 4. Copy your **instance ID** and **API key** from the IBM Cloud resource page
