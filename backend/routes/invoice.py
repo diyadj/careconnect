@@ -328,10 +328,24 @@ def pick_latest_meaningful_prompt(messages: List[dict]) -> Optional[dict]:
         if not text:
             continue
         if not is_flow_start_message(text):
+            lowered = text.lower()
+            requires_input = any(
+                keyword in lowered
+                for keyword in [
+                    "approve",
+                    "decline",
+                    "upload",
+                    "confirm",
+                    "confirmation",
+                    "reply with",
+                    "would you like",
+                    "do you want",
+                ]
+            )
             return {
                 "message": text,
-                "type": "user_approval" if "approve" in text.lower() else "assistant_message",
-                "requires_input": "approve" in text.lower() or "upload" in text.lower(),
+                "type": "user_approval" if requires_input else "assistant_message",
+                "requires_input": requires_input,
             }
         if fallback_text is None:
             fallback_text = text
@@ -356,8 +370,30 @@ def determine_flow_status(user_prompt: Optional[dict], approved: Optional[bool] 
         return "pending_approval"
 
     text = str(user_prompt.get("message", "")).lower()
-    completion_keywords = ["submitted", "sent", "success", "completed", "all done"]
-    if any(keyword in text for keyword in completion_keywords):
+    # Keep flow open for confirmation-style prompts that mention sending as a future action.
+    pending_confirmation_hints = [
+        "waiting for your confirmation",
+        "reply with \"confirm\"",
+        "reply with 'confirm'",
+        "type \"confirm\"",
+        "type 'confirm'",
+        "ready to be sent",
+        "draft",
+        "as-is",
+        "would you like any changes",
+    ]
+    if any(hint in text for hint in pending_confirmation_hints):
+        return "pending_approval"
+
+    completion_hints = [
+        "successfully submitted",
+        "submission complete",
+        "submitted to the iv",
+        "has been submitted",
+        "all done for this month",
+        "email sent successfully",
+    ]
+    if any(hint in text for hint in completion_hints):
         return "submitted"
 
     return "processing"

@@ -1,13 +1,44 @@
 import React, { useEffect, useState } from "react";
 import api from "../api/client";
 
+function htmlToReadableText(html) {
+  if (!html) return "";
+
+  // Preserve common structural breaks before extracting text.
+  const withBreaks = html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|tr|li|h1|h2|h3|h4|h5|h6|table|thead|tbody|section|article)>/gi, "\n")
+    .replace(/<\/(td|th)>/gi, "\t");
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(withBreaks, "text/html");
+  return (doc.body?.textContent || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\r/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/\t+/g, " ")
+    .trim();
+}
+
 function cleanAgentMessage(message) {
   if (!message) return "";
-  return message
+  let cleaned = message
     .replace(/\*\*/g, "")
     .replace(/\|\s*\|/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+    .replace(/\n{3,}/g, "\n\n");
+
+  // Render fenced HTML snippets as plain readable text.
+  cleaned = cleaned.replace(/```html\s*([\s\S]*?)```/gi, (_, htmlBlock) => {
+    const parsed = htmlToReadableText(htmlBlock);
+    return parsed || htmlBlock;
+  });
+
+  // If message still contains raw HTML tags, convert the full body to text.
+  if (/<\/?[a-z][\s\S]*>/i.test(cleaned)) {
+    cleaned = htmlToReadableText(cleaned);
+  }
+
+  return cleaned.replace(/\n{3,}/g, "\n\n").trim();
 }
 
 export default function InvoicePage() {
