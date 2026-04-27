@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env", override=True)
 
-from routes import invoice, mileage, schedule
+from routes import invoice, rides, invoice_db, profile, auth
 
 app = FastAPI(title="CareConnect API", version="1.0.0")
 
@@ -26,8 +26,10 @@ app.add_middleware(
 )
 
 app.include_router(invoice.router, prefix="/api/invoice", tags=["Invoice Agent"])
-app.include_router(mileage.router, prefix="/api/mileage", tags=["Mileage Agent"])
-app.include_router(schedule.router, prefix="/api/schedule", tags=["Annual Schedule"])
+app.include_router(rides.router, prefix="/api/rides", tags=["Ride Planning"])
+app.include_router(invoice_db.router, prefix="/api/invoice-db", tags=["Invoice Records"])
+app.include_router(profile.router, prefix="/api/profile", tags=["Profile"])
+app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 
 
 @app.get("/")

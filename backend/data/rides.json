@@ -1,0 +1,50 @@
+{
+  "2026": {
+    "c287fef3-0c19-4113-bd2f-387364324cd7": {
+      "id": "c287fef3-0c19-4113-bd2f-387364324cd7",
+      "date": "2026-04-28",
+      "time": "17:44",
+      "origin": "St Gallen",
+      "destination": "Zurich",
+      "appointment_type": "Therapy",
+      "ride_type": "tixitaxi",
+      "kilometers_driven": null,
+      "notes": "",
+      "status": "requested",
+      "confirmed_time": null,
+      "year": 2026,
+      "created_at": "2026-04-27T17:45:03.889081",
+      "updated_at": "2026-04-27T17:45:03.889081"
+    },
+    "2a9af2be-b215-4439-aa23-30b4ce88b041": {
+      "id": "2a9af2be-b215-4439-aa23-30b4ce88b041",
+      "date": "2026-03-28",
+      "time": "23:41",
+      "origin": "Zurich",
+      "destination": "Frauenfeld",
+      "appointment_type": "Medical",
+      "ride_type": "public_transport",
+      "kilometers_driven": null,
+      "notes": "",
+      "status": "requested",
+      "confirmed_time": null,
+      "year": 2026,
+      "created_at": "2026-04-27T17:46:16.639409",
+      "updated_at": "2026-04-27T17:46:16.639409"
+    },
+    "042d18ff-9746-4b78-a1d4-fa132eae82f4": {
+      "id": "042d18ff-9746-4b78-a1d4-fa132eae82f4",
+      "date": "2026-04-21",
+      "time": "19:53",
+      "origin": "igip4h",
+      "destination": "qwfqe",
+      "appointment_type": "na",
+      "ride_type": "tixitaxi",
+      "kilometers_driven": null,
+      "notes": "new",
+      "year": 2026,
+      "created_at": "2026-04-27T17:51:28.351088",
+      "updated_at": "2026-04-27T17:51:28.351088"
+    }
+  }
+}

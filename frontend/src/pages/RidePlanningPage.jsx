@@ -2,28 +2,96 @@ import React, { useState, useEffect } from "react";
 import api from "../api/client";
 import StatusCard from "../components/StatusCard";
 
-const APPOINTMENT_TYPES = [
-  "Therapy",
-  "Care Institution",
-  "Medical Appointment",
-  "Other",
-];
-
-const RIDE_STATUS_LABELS = {
-  requested: "Requested",
-  confirmed: "Confirmed",
-  adjusted: "Adjusted",
-  completed: "Completed",
-  cancelled: "Cancelled",
+const RIDE_TYPE_LABELS = {
+  tixitaxi: "TixiTaxi",
+  public_transport: "Public Transport (SBB)",
+  private_car: "Private Car",
+  other: "Other",
 };
 
-const STATUS_COLORS = {
-  requested: "#ff9f1c",
-  confirmed: "#0e7c86",
-  adjusted: "#f59e0b",
-  completed: "#10b981",
-  cancelled: "#ef4444",
-};
+function formatDate(dateStr) {
+  return new Date(dateStr).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function exportPDF(title, rides, isTixiTaxi) {
+  const filtered = rides.filter((r) =>
+    isTixiTaxi ? r.ride_type === "tixitaxi" : r.ride_type !== "tixitaxi"
+  );
+
+  if (filtered.length === 0) {
+    alert(`No rides found for "${title}".`);
+    return;
+  }
+
+  const rows = filtered
+    .map(
+      (r) => `
+      <tr>
+        <td>${r.date}</td>
+        <td>${r.time}</td>
+        <td>${r.origin}</td>
+        <td>${r.destination}</td>
+        <td>${r.appointment_type || "—"}</td>
+        ${
+          !isTixiTaxi
+            ? `<td>${RIDE_TYPE_LABELS[r.ride_type] || r.ride_type || "—"}</td>
+               <td>${r.ride_type === "private_car" && r.kilometers_driven != null ? r.kilometers_driven + " km" : "—"}</td>`
+            : ""
+        }
+        <td>${r.notes || "—"}</td>
+      </tr>`
+    )
+    .join("");
+
+  const extraHeaders = !isTixiTaxi
+    ? "<th>Transport Type</th><th>km Driven</th>"
+    : "";
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${title}</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 2rem; color: #111; }
+    h1 { font-size: 1.3rem; margin-bottom: 0.25rem; }
+    p.meta { color: #666; font-size: 0.85rem; margin-bottom: 1.5rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+    th { background: #0e7c86; color: #fff; padding: 0.55rem 0.75rem; text-align: left; }
+    td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #e5e7eb; }
+    tr:nth-child(even) td { background: #f9fafb; }
+    @media print { body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <h1>${title}</h1>
+  <p class="meta">Generated ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} · ${filtered.length} ride${filtered.length !== 1 ? "s" : ""}</p>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Time</th>
+        <th>From</th>
+        <th>To</th>
+        <th>Appointment</th>
+        ${extraHeaders}
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+</body>
+</html>`;
+
+  const win = window.open("", "_blank");
+  win.document.write(html);
+  win.document.close();
+  win.print();
+}
 
 export default function RidePlanningPage() {
   const currentYear = new Date().getFullYear();
@@ -33,7 +101,9 @@ export default function RidePlanningPage() {
   const [time, setTime] = useState("");
   const [origin, setOrigin] = useState("");
   const [destination, setDestination] = useState("");
-  const [appointmentType, setAppointmentType] = useState("Therapy");
+  const [appointmentType, setAppointmentType] = useState("");
+  const [rideType, setRideType] = useState("");
+  const [kilometersDriven, setKilometersDriven] = useState("");
   const [notes, setNotes] = useState("");
 
   // Ride list state
@@ -45,9 +115,11 @@ export default function RidePlanningPage() {
 
   // Edit mode state
   const [editingId, setEditingId] = useState(null);
-  const [filterStatus, setFilterStatus] = useState("all");
 
-  // Load rides on mount and when status filter changes
+  // Email send state
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailResult, setEmailResult] = useState(null);
+
   useEffect(() => {
     loadRides();
   }, []);
@@ -55,11 +127,8 @@ export default function RidePlanningPage() {
   async function loadRides() {
     setLoading(true);
     setError(null);
-
     try {
-      const res = await api.get("/rides", {
-        params: { year: currentYear },
-      });
+      const res = await api.get("/rides", { params: { year: currentYear } });
       setRides(Array.isArray(res.data) ? res.data : res.data.rides || []);
     } catch (err) {
       setError("Failed to load rides. Please try again.");
@@ -67,6 +136,18 @@ export default function RidePlanningPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function resetForm() {
+    setDate("");
+    setTime("");
+    setOrigin("");
+    setDestination("");
+    setAppointmentType("");
+    setRideType("");
+    setKilometersDriven("");
+    setNotes("");
+    setEditingId(null);
   }
 
   async function handleAddRide(e) {
@@ -88,31 +169,21 @@ export default function RidePlanningPage() {
         origin,
         destination,
         appointment_type: appointmentType,
+        ride_type: rideType,
+        kilometers_driven: rideType === "private_car" ? Number(kilometersDriven) || null : null,
         notes,
         year: currentYear,
       };
 
-      let res;
       if (editingId) {
-        // Update existing ride
-        res = await api.patch(`/rides/${editingId}`, rideData);
+        await api.patch(`/rides/${editingId}`, rideData);
         setSuccess("Ride updated successfully.");
       } else {
-        // Create new ride
-        res = await api.post("/rides", rideData);
+        await api.post("/rides", rideData);
         setSuccess("Ride added to your plan.");
       }
 
-      // Reset form
-      setDate("");
-      setTime("");
-      setOrigin("");
-      setDestination("");
-      setAppointmentType("Therapy");
-      setNotes("");
-      setEditingId(null);
-
-      // Reload rides list
+      resetForm();
       await loadRides();
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to save ride.");
@@ -127,7 +198,9 @@ export default function RidePlanningPage() {
     setTime(ride.time);
     setOrigin(ride.origin);
     setDestination(ride.destination);
-    setAppointmentType(ride.appointment_type || "Therapy");
+    setAppointmentType(ride.appointment_type || "");
+    setRideType(ride.ride_type || "");
+    setKilometersDriven(ride.kilometers_driven != null ? String(ride.kilometers_driven) : "");
     setNotes(ride.notes || "");
     setEditingId(ride.id);
     setError(null);
@@ -135,24 +208,25 @@ export default function RidePlanningPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  function handleCancelEdit() {
-    setDate("");
-    setTime("");
-    setOrigin("");
-    setDestination("");
-    setAppointmentType("Therapy");
-    setNotes("");
-    setEditingId(null);
+  async function handleSendTixiEmail() {
+    setEmailSending(true);
+    setEmailResult(null);
+    try {
+      const res = await api.post("/rides/send-tixi-email", null, {
+        params: { year: currentYear },
+      });
+      setEmailResult({ ok: true, message: `Sent ${res.data.count} ride${res.data.count !== 1 ? "s" : ""} to ${res.data.to}.` });
+    } catch (err) {
+      setEmailResult({ ok: false, message: err.response?.data?.detail || "Failed to send email." });
+    } finally {
+      setEmailSending(false);
+    }
   }
 
   async function handleDeleteRide(rideId) {
-    if (!window.confirm("Are you sure you want to delete this ride?")) {
-      return;
-    }
-
+    if (!window.confirm("Are you sure you want to delete this ride?")) return;
     setError(null);
     setSuccess(null);
-
     try {
       await api.delete(`/rides/${rideId}`);
       setSuccess("Ride deleted.");
@@ -163,43 +237,12 @@ export default function RidePlanningPage() {
     }
   }
 
-  async function handleCancelRide(rideId) {
-    if (!window.confirm("Mark this ride as cancelled?")) {
-      return;
-    }
-
-    setError(null);
-    setSuccess(null);
-
-    try {
-      await api.patch(`/rides/${rideId}`, { status: "cancelled" });
-      setSuccess("Ride marked as cancelled.");
-      await loadRides();
-    } catch (err) {
-      setError("Failed to cancel ride.");
-      console.error(err);
-    }
-  }
-
-  const filteredRides =
-    filterStatus === "all"
-      ? rides
-      : rides.filter((ride) => ride.status === filterStatus);
-
-  const upcomingRides = filteredRides.filter(
-    (ride) => ride.status !== "cancelled" && ride.status !== "completed"
-  );
-  const completedRides = filteredRides.filter(
-    (ride) => ride.status === "completed" || ride.status === "cancelled"
-  );
-
   return (
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">Ride Planning</h1>
         <p className="page-subtitle">
-          Enter all planned transport appointments for {currentYear}. The system
-          will store these rides and prepare them for booking with TixiTaxi.
+          Enter all planned transport appointments for {currentYear}.
         </p>
       </div>
 
@@ -259,18 +302,54 @@ export default function RidePlanningPage() {
 
           <div style={{ marginBottom: "1rem" }}>
             <label className="form-label">Appointment Type</label>
-            <select
+            <input
+              type="text"
+              placeholder="e.g., Therapy, Medical Appointment"
               value={appointmentType}
               onChange={(e) => setAppointmentType(e.target.value)}
-              className="form-select"
-            >
-              {APPOINTMENT_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
-              ))}
-            </select>
+              className="form-input"
+            />
           </div>
+
+          <div style={{ marginBottom: "1rem" }}>
+            <label className="form-label">Type of Ride</label>
+            <div className="chip-row" style={{ marginTop: "0.5rem" }}>
+              {[
+                { value: "tixitaxi", label: "TixiTaxi" },
+                { value: "public_transport", label: "Public Transport (SBB)" },
+                { value: "private_car", label: "Private Car" },
+                { value: "other", label: "Other" },
+              ].map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`chip${rideType === value ? " selected" : ""}`}
+                  onClick={() => {
+                    setRideType(value);
+                    if (value !== "private_car") setKilometersDriven("");
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {rideType === "private_car" && (
+            <div style={{ marginBottom: "1rem" }}>
+              <label className="form-label">Kilometers Driven</label>
+              <input
+                type="number"
+                min="0"
+                step="0.1"
+                placeholder="e.g., 12.5"
+                value={kilometersDriven}
+                onChange={(e) => setKilometersDriven(e.target.value)}
+                className="form-input"
+                style={{ maxWidth: "200px" }}
+              />
+            </div>
+          )}
 
           <div style={{ marginBottom: "1rem" }}>
             <label className="form-label">Notes (optional)</label>
@@ -291,7 +370,7 @@ export default function RidePlanningPage() {
               <button
                 type="button"
                 className="btn btn-secondary"
-                onClick={handleCancelEdit}
+                onClick={resetForm}
                 disabled={submitting}
               >
                 Cancel Edit
@@ -307,95 +386,92 @@ export default function RidePlanningPage() {
 
       {/* Rides List */}
       <div className="section" style={{ marginTop: "2rem" }}>
-        <h2 style={{ marginTop: 0 }}>Your Rides ({filteredRides.length})</h2>
-
-        {/* Filter */}
-        <div style={{ marginBottom: "1.5rem" }}>
-          <label className="form-label" style={{ marginBottom: "0.5rem" }}>
-            Filter by status
-          </label>
-          <div className="chip-row">
-            {["all", "requested", "confirmed", "adjusted", "completed", "cancelled"].map(
-              (status) => (
-                <button
-                  key={status}
-                  className={`chip${filterStatus === status ? " selected" : ""}`}
-                  onClick={() => setFilterStatus(status)}
-                >
-                  {status === "all" ? "All" : RIDE_STATUS_LABELS[status]}
-                </button>
-              )
-            )}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
+          <h2 style={{ margin: 0 }}>Your Rides ({rides.length})</h2>
+          <div className="button-row" style={{ gap: "0.6rem" }}>
+            <button
+              className="btn btn-secondary"
+              onClick={() => exportPDF("TixiTaxi Rides", rides, true)}
+              disabled={rides.length === 0}
+            >
+              Export TixiTaxi PDF
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => exportPDF("Other Rides", rides, false)}
+              disabled={rides.length === 0}
+            >
+              Export Other Rides PDF
+            </button>
           </div>
         </div>
 
         {loading ? (
           <p style={{ color: "var(--muted)" }}>Loading rides...</p>
-        ) : filteredRides.length === 0 ? (
-          <p style={{ color: "var(--muted)" }}>
-            {filterStatus === "all"
-              ? "No rides planned yet. Add one above!"
-              : `No ${filterStatus} rides.`}
-          </p>
+        ) : rides.length === 0 ? (
+          <p style={{ color: "var(--muted)" }}>No rides planned yet. Add one above!</p>
         ) : (
-          <>
-            {/* Upcoming Rides */}
-            {upcomingRides.length > 0 && (
-              <div style={{ marginBottom: "2rem" }}>
-                <h4 style={{ color: "var(--muted)", marginBottom: "1rem" }}>
-                  Upcoming Rides ({upcomingRides.length})
-                </h4>
-                <div style={{ display: "grid", gap: "1rem" }}>
-                  {upcomingRides.map((ride) => (
-                    <RideCard
-                      key={ride.id}
-                      ride={ride}
-                      onEdit={handleEditRide}
-                      onDelete={handleDeleteRide}
-                      onCancel={handleCancelRide}
-                      isEditing={editingId === ride.id}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Completed/Cancelled Rides */}
-            {completedRides.length > 0 && (
-              <div>
-                <h4 style={{ color: "var(--muted)", marginBottom: "1rem" }}>
-                  History ({completedRides.length})
-                </h4>
-                <div style={{ display: "grid", gap: "1rem", opacity: 0.7 }}>
-                  {completedRides.map((ride) => (
-                    <RideCard
-                      key={ride.id}
-                      ride={ride}
-                      onEdit={handleEditRide}
-                      onDelete={handleDeleteRide}
-                      onCancel={handleCancelRide}
-                      isEditing={editingId === ride.id}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
+          <div style={{ display: "grid", gap: "1rem" }}>
+            {rides.map((ride) => (
+              <RideCard
+                key={ride.id}
+                ride={ride}
+                onEdit={handleEditRide}
+                onDelete={handleDeleteRide}
+                isEditing={editingId === ride.id}
+              />
+            ))}
+          </div>
         )}
+      </div>
+
+      {/* Send to Taxi */}
+      <div
+        className="section"
+        style={{
+          marginTop: "2rem",
+          padding: "1.25rem 1.5rem",
+          background: "#f0f9fa",
+          borderRadius: "12px",
+          border: "1px solid #c8e6e9",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "1rem",
+        }}
+      >
+        <div>
+          <div style={{ fontWeight: "600", marginBottom: "0.2rem" }}>Book TixiTaxi Rides</div>
+          <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>
+            Emails the full TixiTaxi ride list for {currentYear} to the taxi company.
+          </div>
+          {emailResult && (
+            <div
+              style={{
+                marginTop: "0.6rem",
+                fontSize: "0.875rem",
+                color: emailResult.ok ? "#0e7c86" : "#ef4444",
+                fontWeight: "500",
+              }}
+            >
+              {emailResult.message}
+            </div>
+          )}
+        </div>
+        <button
+          className="btn btn-primary"
+          onClick={handleSendTixiEmail}
+          disabled={emailSending || rides.filter((r) => r.ride_type === "tixitaxi").length === 0}
+        >
+          {emailSending ? "Sending…" : "Book TixiTaxi Rides"}
+        </button>
       </div>
     </div>
   );
 }
 
-function RideCard({ ride, onEdit, onDelete, onCancel, isEditing }) {
-  const statusColor = STATUS_COLORS[ride.status] || "#5b6670";
-  const dateObj = new Date(ride.date);
-  const formattedDate = dateObj.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-
+function RideCard({ ride, onEdit, onDelete, isEditing }) {
   return (
     <div
       className="ride-card"
@@ -409,47 +485,31 @@ function RideCard({ ride, onEdit, onDelete, onCancel, isEditing }) {
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: "0.8rem" }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.4rem" }}>
-            <span style={{ fontSize: "1.1rem", fontWeight: "600" }}>
-              {formattedDate} at {ride.time}
-            </span>
-            <span
-              style={{
-                display: "inline-block",
-                backgroundColor: statusColor,
-                color: "#ffffff",
-                padding: "0.25rem 0.65rem",
-                borderRadius: "999px",
-                fontSize: "0.75rem",
-                fontWeight: "600",
-              }}
-            >
-              {RIDE_STATUS_LABELS[ride.status] || ride.status}
-            </span>
+          <div style={{ fontSize: "1.1rem", fontWeight: "600", marginBottom: "0.3rem" }}>
+            {formatDate(ride.date)} at {ride.time}
           </div>
-          <div style={{ color: "var(--muted)", fontSize: "0.9rem", marginBottom: "0.4rem" }}>
-            {ride.appointment_type}
-          </div>
+          {ride.appointment_type && (
+            <div style={{ color: "var(--muted)", fontSize: "0.9rem", marginBottom: "0.2rem" }}>
+              {ride.appointment_type}
+            </div>
+          )}
+          {ride.ride_type && (
+            <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
+              {RIDE_TYPE_LABELS[ride.ride_type] || ride.ride_type}
+              {ride.ride_type === "private_car" && ride.kilometers_driven != null && (
+                <span style={{ marginLeft: "0.5rem" }}>· {ride.kilometers_driven} km</span>
+              )}
+            </div>
+          )}
         </div>
         <div className="button-row" style={{ gap: "0.4rem" }}>
-          {ride.status !== "cancelled" && ride.status !== "completed" && (
-            <>
-              <button
-                onClick={() => onEdit(ride)}
-                className="btn btn-secondary"
-                style={{ padding: "0.45rem 0.75rem", fontSize: "0.85rem" }}
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => onCancel(ride.id)}
-                className="btn btn-secondary"
-                style={{ padding: "0.45rem 0.75rem", fontSize: "0.85rem" }}
-              >
-                Cancel
-              </button>
-            </>
-          )}
+          <button
+            onClick={() => onEdit(ride)}
+            className="btn btn-secondary"
+            style={{ padding: "0.45rem 0.75rem", fontSize: "0.85rem" }}
+          >
+            Edit
+          </button>
           <button
             onClick={() => onDelete(ride.id)}
             className="btn btn-secondary"
@@ -460,17 +520,13 @@ function RideCard({ ride, onEdit, onDelete, onCancel, isEditing }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: "0.8rem" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.5rem", marginBottom: ride.notes ? "0.8rem" : 0 }}>
         <div>
-          <div style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: "0.2rem" }}>
-            From
-          </div>
+          <div style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: "0.2rem" }}>From</div>
           <div style={{ fontWeight: "500" }}>{ride.origin}</div>
         </div>
         <div>
-          <div style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: "0.2rem" }}>
-            To
-          </div>
+          <div style={{ color: "var(--muted)", fontSize: "0.85rem", marginBottom: "0.2rem" }}>To</div>
           <div style={{ fontWeight: "500" }}>{ride.destination}</div>
         </div>
       </div>
@@ -478,12 +534,6 @@ function RideCard({ ride, onEdit, onDelete, onCancel, isEditing }) {
       {ride.notes && (
         <div style={{ fontSize: "0.9rem", color: "var(--muted)", fontStyle: "italic" }}>
           Notes: {ride.notes}
-        </div>
-      )}
-
-      {ride.confirmed_time && ride.confirmed_time !== ride.time && (
-        <div style={{ marginTop: "0.8rem", padding: "0.75rem", background: "#fef3c7", borderRadius: "8px", fontSize: "0.85rem" }}>
-          ⚠️ <strong>Time adjusted:</strong> TixiTaxi confirmed {ride.confirmed_time}
         </div>
       )}
     </div>

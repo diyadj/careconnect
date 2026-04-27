@@ -3,18 +3,14 @@
     "year": 2026,
     "regular_days": [
       "Monday",
-      "Wednesday",
-      "Thursday",
-      "Friday",
-      "Tuesday"
+      "Tuesday",
+      "Wednesday"
     ],
     "closure_weeks": [
-      "2026-04-20",
-      "2026-05-19",
-      "2026-05-25"
+      "2026-04-08"
     ],
-    "notes": "Summer Break from 20/04 - 19/05 \nTherapy Session on 25/05",
-    "created_at": "2026-04-14T13:52:22.082615",
-    "updated_at": "2026-04-15T16:50:17.706234"
+    "notes": "summer break",
+    "created_at": "2026-04-22T17:27:36.907249",
+    "updated_at": "2026-04-22T17:27:36.907249"
   }
 }
