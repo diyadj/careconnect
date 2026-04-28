@@ -31,20 +31,6 @@
       "year": 2026,
       "created_at": "2026-04-27T17:46:16.639409",
       "updated_at": "2026-04-27T17:46:16.639409"
-    },
-    "042d18ff-9746-4b78-a1d4-fa132eae82f4": {
-      "id": "042d18ff-9746-4b78-a1d4-fa132eae82f4",
-      "date": "2026-04-21",
-      "time": "19:53",
-      "origin": "igip4h",
-      "destination": "qwfqe",
-      "appointment_type": "na",
-      "ride_type": "tixitaxi",
-      "kilometers_driven": null,
-      "notes": "new",
-      "year": 2026,
-      "created_at": "2026-04-27T17:51:28.351088",
-      "updated_at": "2026-04-27T17:51:28.351088"
     }
   }
 }

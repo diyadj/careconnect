@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import api from "../api/client";
+import careconnectLogo from "../components/careconnect_logo.png";
 
 export default function LoginPage({ onLogin }) {
   const [username, setUsername] = useState("");
@@ -44,23 +45,7 @@ export default function LoginPage({ onLogin }) {
       >
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              width: "60px",
-              height: "60px",
-              borderRadius: "16px",
-              background: "var(--primary)",
-              marginBottom: "1rem",
-            }}
-          >
-            <span style={{ fontSize: "1.75rem" }}>🔗</span>
-          </div>
-          <div style={{ fontWeight: 800, fontSize: "1.5rem", letterSpacing: "-0.5px", color: "#111" }}>
-            CareConnect
-          </div>
+          <img src={careconnectLogo} alt="CareConnect" style={{ height: "80px", marginBottom: "1rem", borderRadius: "12px" }} />
           <div style={{ fontSize: "0.875rem", color: "var(--muted)", marginTop: "0.25rem" }}>
             Sign in to continue
           </div>

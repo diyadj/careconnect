@@ -3,10 +3,8 @@ import api from "../api/client";
 import StatusCard from "../components/StatusCard";
 
 const RIDE_TYPE_LABELS = {
-  tixitaxi: "TixiTaxi",
-  public_transport: "Public Transport (SBB)",
-  private_car: "Private Car",
-  other: "Other",
+  tixitaxi: "Taxi",
+  private_car: "Private",
 };
 
 function formatDate(dateStr) {
@@ -315,10 +313,8 @@ export default function RidePlanningPage() {
             <label className="form-label">Type of Ride</label>
             <div className="chip-row" style={{ marginTop: "0.5rem" }}>
               {[
-                { value: "tixitaxi", label: "TixiTaxi" },
-                { value: "public_transport", label: "Public Transport (SBB)" },
-                { value: "private_car", label: "Private Car" },
-                { value: "other", label: "Other" },
+                { value: "tixitaxi", label: "Taxi" },
+                { value: "private_car", label: "Private" },
               ].map(({ value, label }) => (
                 <button
                   key={value}
