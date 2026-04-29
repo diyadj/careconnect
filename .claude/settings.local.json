@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"c:/Uni/year3/y3s2 exchange/agentic ai/careconnect\" ls-files adk-project/)",
+      "Bash(git rm *)"
+    ]
+  }
+}

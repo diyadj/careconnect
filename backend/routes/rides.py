@@ -94,6 +94,9 @@ def create_ride(ride: RideCreate):
     ride_id = str(uuid.uuid4())
     now = datetime.now().isoformat()
 
+    km = ride.kilometers_driven if ride.ride_type == "private_car" else None
+    cost = round(km * 0.7, 2) if km is not None else None
+
     all_rides[ride_year][ride_id] = {
         "id": ride_id,
         "date": ride.date,
@@ -102,7 +105,8 @@ def create_ride(ride: RideCreate):
         "destination": ride.destination,
         "appointment_type": ride.appointment_type or "",
         "ride_type": ride.ride_type or "",
-        "kilometers_driven": ride.kilometers_driven if ride.ride_type == "private_car" else None,
+        "kilometers_driven": km,
+        "cost_chf": cost,
         "notes": ride.notes or "",
         "year": int(ride_year),
         "created_at": now,
@@ -221,8 +225,14 @@ def update_ride(ride_id: str, updates: RideUpdate):
         ride["ride_type"] = updates.ride_type
         if updates.ride_type != "private_car":
             ride["kilometers_driven"] = None
+            ride["cost_chf"] = None
     if updates.kilometers_driven is not None:
         ride["kilometers_driven"] = updates.kilometers_driven
+
+    if ride.get("ride_type") == "private_car" and ride.get("kilometers_driven") is not None:
+        ride["cost_chf"] = round(ride["kilometers_driven"] * 0.7, 2)
+    elif ride.get("ride_type") != "private_car":
+        ride["cost_chf"] = None
     if updates.notes is not None:
         ride["notes"] = updates.notes
 

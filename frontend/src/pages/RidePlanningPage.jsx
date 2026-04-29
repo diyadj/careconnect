@@ -37,7 +37,8 @@ function exportPDF(title, rides, isTixiTaxi) {
         ${
           !isTixiTaxi
             ? `<td>${RIDE_TYPE_LABELS[r.ride_type] || r.ride_type || "—"}</td>
-               <td>${r.ride_type === "private_car" && r.kilometers_driven != null ? r.kilometers_driven + " km" : "—"}</td>`
+               <td>${r.ride_type === "private_car" && r.kilometers_driven != null ? r.kilometers_driven + " km" : "—"}</td>
+               <td>${r.ride_type === "private_car" && r.cost_chf != null ? "CHF " + r.cost_chf.toFixed(2) : "—"}</td>`
             : ""
         }
         <td>${r.notes || "—"}</td>
@@ -46,7 +47,7 @@ function exportPDF(title, rides, isTixiTaxi) {
     .join("");
 
   const extraHeaders = !isTixiTaxi
-    ? "<th>Transport Type</th><th>km Driven</th>"
+    ? "<th>Transport Type</th><th>km Driven</th><th>Cost (CHF)</th>"
     : "";
 
   const html = `<!DOCTYPE html>
@@ -494,6 +495,9 @@ function RideCard({ ride, onEdit, onDelete, isEditing }) {
               {RIDE_TYPE_LABELS[ride.ride_type] || ride.ride_type}
               {ride.ride_type === "private_car" && ride.kilometers_driven != null && (
                 <span style={{ marginLeft: "0.5rem" }}>· {ride.kilometers_driven} km</span>
+              )}
+              {ride.ride_type === "private_car" && ride.cost_chf != null && (
+                <span style={{ marginLeft: "0.5rem", fontWeight: "600", color: "#0e7c86" }}>· CHF {ride.cost_chf.toFixed(2)}</span>
               )}
             </div>
           )}
