@@ -1,13 +1,22 @@
 import os
 import json
 import uuid
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import asyncio
+import httpx
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+
+from .invoice import (
+    get_auth_headers,
+    get_runs_endpoint,
+    wait_for_run_completion,
+    WXO_API_KEY,
+    WXO_INSTANCE_ID,
+)
+
+WXO_EMAIL_AGENT_ID = os.getenv("WXO_EMAIL_AGENT_ID")
 
 router = APIRouter()
 
@@ -105,19 +114,20 @@ def create_ride(ride: RideCreate):
 
 
 @router.post("/send-tixi-email")
-def send_tixi_email(year: Optional[int] = None):
-    """Email the TixiTaxi ride list for the given year to the configured taxi address."""
+async def send_tixi_email(year: Optional[int] = None):
+    """Send TixiTaxi ride list via the IBM watsonx Outlook email agent."""
     taxi_email = os.getenv("TAXI_EMAIL")
-    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user = os.getenv("SMTP_USER")
-    smtp_password = os.getenv("SMTP_PASSWORD")
-    sender = os.getenv("EMAIL_SENDER", smtp_user)
 
-    if not all([taxi_email, smtp_user, smtp_password]):
+    missing = [name for name, val in [
+        ("TAXI_EMAIL", taxi_email),
+        ("WXO_EMAIL_AGENT_ID", WXO_EMAIL_AGENT_ID),
+        ("WXO_API_KEY", WXO_API_KEY),
+        ("WXO_INSTANCE_ID", WXO_INSTANCE_ID),
+    ] if not val]
+    if missing:
         raise HTTPException(
             status_code=503,
-            detail="Email not configured. Add TAXI_EMAIL, SMTP_USER, and SMTP_PASSWORD to your .env file.",
+            detail=f"Email agent not configured. Add to your .env file: {', '.join(missing)}",
         )
 
     target_year = str(year) if year else str(datetime.now().year)
@@ -134,59 +144,48 @@ def send_tixi_email(year: Optional[int] = None):
             detail=f"No TixiTaxi rides found for {target_year}.",
         )
 
-    rows = "".join(
-        f"""<tr>
-          <td style="padding:0.5rem 0.75rem;border-bottom:1px solid #e5e7eb">{r['date']}</td>
-          <td style="padding:0.5rem 0.75rem;border-bottom:1px solid #e5e7eb">{r['time']}</td>
-          <td style="padding:0.5rem 0.75rem;border-bottom:1px solid #e5e7eb">{r['origin']}</td>
-          <td style="padding:0.5rem 0.75rem;border-bottom:1px solid #e5e7eb">{r['destination']}</td>
-          <td style="padding:0.5rem 0.75rem;border-bottom:1px solid #e5e7eb">{r.get('appointment_type') or '—'}</td>
-          <td style="padding:0.5rem 0.75rem;border-bottom:1px solid #e5e7eb">{r.get('notes') or '—'}</td>
-        </tr>"""
+    header = f"{'Date':<12} {'Time':<8} {'From':<25} {'To':<25} {'Appointment':<20} Notes"
+    divider = "-" * 100
+    table_rows = [header, divider] + [
+        f"{r['date']:<12} {r['time']:<8} {r['origin']:<25} {r['destination']:<25} "
+        f"{(r.get('appointment_type') or '—'):<20} {r.get('notes') or '—'}"
         for r in tixi_rides
+    ]
+    table = "\n".join(table_rows)
+
+    count = len(tixi_rides)
+    agent_message = (
+        f"Please send an Outlook email to {taxi_email} with the following details:\n\n"
+        f"Subject: TixiTaxi Rides {target_year} – CareConnect\n\n"
+        f"Body:\n"
+        f"Hi,\n\n"
+        f"Please find below the TixiTaxi rides planned for {target_year} "
+        f"({count} ride{'s' if count != 1 else ''}):\n\n"
+        f"{table}\n\n"
+        f"Best regards,\nCareConnect"
     )
 
-    html = f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;color:#111;padding:2rem;max-width:720px;margin:0 auto">
-  <h2 style="margin-bottom:0.25rem">TixiTaxi Rides — {target_year}</h2>
-  <p style="color:#666;font-size:0.9rem;margin-bottom:1.5rem">
-    {len(tixi_rides)} ride{"s" if len(tixi_rides) != 1 else ""} planned
-  </p>
-  <table style="width:100%;border-collapse:collapse;font-size:0.875rem">
-    <thead>
-      <tr style="background:#0e7c86;color:#fff">
-        <th style="padding:0.55rem 0.75rem;text-align:left">Date</th>
-        <th style="padding:0.55rem 0.75rem;text-align:left">Time</th>
-        <th style="padding:0.55rem 0.75rem;text-align:left">From</th>
-        <th style="padding:0.55rem 0.75rem;text-align:left">To</th>
-        <th style="padding:0.55rem 0.75rem;text-align:left">Appointment</th>
-        <th style="padding:0.55rem 0.75rem;text-align:left">Notes</th>
-      </tr>
-    </thead>
-    <tbody>{rows}</tbody>
-  </table>
-  <p style="color:#999;font-size:0.8rem;margin-top:1.5rem">Sent via CareConnect</p>
-</body>
-</html>"""
+    headers = await get_auth_headers()
+    payload = {
+        "message": {"role": "user", "content": agent_message},
+        "agent_id": WXO_EMAIL_AGENT_ID,
+        "capture_logs": False,
+    }
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = f"TixiTaxi Rides {target_year} – CareConnect"
-    msg["From"] = sender
-    msg["To"] = taxi_email
-    msg.attach(MIMEText(html, "html"))
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(get_runs_endpoint(), json=payload, headers=headers)
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=502, detail=f"Failed to reach watsonx service: {exc}") from exc
+        if response.status_code not in (200, 201, 202):
+            raise HTTPException(status_code=500, detail=f"watsonx agent run failed: {response.text}")
+        run_data = response.json()
 
-    try:
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.sendmail(sender, [taxi_email], msg.as_string())
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to send email: {e}")
+    run_id = run_data.get("id") or run_data.get("run_id")
+    if run_id:
+        await wait_for_run_completion(run_id, timeout_seconds=30)
 
-    return {"status": "sent", "to": taxi_email, "count": len(tixi_rides)}
+    return {"status": "sent", "to": taxi_email, "count": count}
 
 
 @router.patch("/{ride_id}")
