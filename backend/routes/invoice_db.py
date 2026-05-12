@@ -14,6 +14,7 @@ from .invoice import (
     wait_for_run_completion,
     get_latest_assistant_message,
     extract_text_from_message,
+    upload_files_to_wxo,
     WXO_INVOICE_AGENT_ID,
 )
 
@@ -240,9 +241,9 @@ def _parse_form_row(text: str, appointment_reason: str, appointment_address: str
             pass
 
     # Path 3: WatsonX Flow "Display message" plain text, e.g.:
-    #   Date: 2026-05-01, Cost: 12.50, Location from: Gossau, Location to: St. Gallen
+    #   Date: 08.05.2026, Cost: CHF 6.30, Location from: St. Gallen, Location to: Jakobsbad
     eng_date_match = re.search(r'Date:\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[./]\d{1,2}[./]\d{4})', text, re.IGNORECASE)
-    eng_cost_match = re.search(r'Cost:\s*([\d]+[.,]?[\d]*)', text, re.IGNORECASE)
+    eng_cost_match = re.search(r'Cost:\s*(?:CHF\s*)?([\d]+[.,][\d]+|[\d]+)', text, re.IGNORECASE)
     if eng_date_match and eng_cost_match:
         raw = eng_date_match.group(1)
         swiss = re.match(r'(\d{1,2})[./](\d{1,2})[./](\d{4})', raw)
@@ -337,31 +338,39 @@ async def agent_extract_invoice(
         f"Please extract the receipt details (date, cost, transport type) and return them."
     )
 
-    # Compress image to JPEG ≤1024px so it fits in the vision model's context window.
-    # PDFs are sent as text-only (vision models can't read PDF bytes directly).
+    # Upload file to WatsonX S3 so the Document Extractor node receives a URL.
+    # Fall back to inline base64 only if the upload endpoint is unavailable.
+    uploaded_file_urls = None
     image_bytes = None
     image_mime = "image/jpeg"
-    if ext in (".jpg", ".jpeg", ".png"):
-        try:
-            from PIL import Image
-            import io as _io
-            img = Image.open(_io.BytesIO(file_bytes))
-            img.thumbnail((1024, 1536), Image.LANCZOS)
-            if img.mode in ("RGBA", "LA", "P"):
-                img = img.convert("RGB")
-            buf = _io.BytesIO()
-            img.save(buf, format="JPEG", quality=75, optimize=True)
-            image_bytes = buf.getvalue()
-        except ImportError:
-            # Pillow not installed — send raw bytes and hope they fit
-            image_bytes = file_bytes
-            image_mime = "image/jpeg" if ext in (".jpg", ".jpeg") else "image/png"
+    try:
+        uploaded_file_urls = await upload_files_to_wxo(
+            [{"filename": original_name, "content": file_bytes}],
+            text=context_message,
+        )
+    except HTTPException:
+        # Upload endpoint unavailable — send image inline for vision models
+        if ext in (".jpg", ".jpeg", ".png"):
+            try:
+                from PIL import Image
+                import io as _io
+                img = Image.open(_io.BytesIO(file_bytes))
+                img.thumbnail((1024, 1536), Image.LANCZOS)
+                if img.mode in ("RGBA", "LA", "P"):
+                    img = img.convert("RGB")
+                buf = _io.BytesIO()
+                img.save(buf, format="JPEG", quality=75, optimize=True)
+                image_bytes = buf.getvalue()
+            except ImportError:
+                image_bytes = file_bytes
+                image_mime = "image/jpeg" if ext in (".jpg", ".jpeg") else "image/png"
 
-    # Turn 1: send receipt image inline as multimodal content
+    # Turn 1: create run — with file URL if upload succeeded, else inline image
     run1 = await create_run(
         context_message,
         agent_id=agent_id,
-        image_bytes=image_bytes,
+        file_urls=uploaded_file_urls,
+        image_bytes=image_bytes if not uploaded_file_urls else None,
         image_mime=image_mime,
     )
     thread_id = run1.get("thread_id")
@@ -372,6 +381,16 @@ async def agent_extract_invoice(
 
     msg1 = await get_latest_assistant_message(thread_id)
     text1 = extract_text_from_message(msg1) if msg1 else ""
+
+    # If the flow is asking for a file upload it means the S3 upload never reached the flow.
+    if "please upload" in text1.lower() or "upload the file" in text1.lower():
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "The flow did not receive the uploaded file. "
+                "Check that WXO_INSTANCE_ID and WXO_API_KEY are correct in backend/.env."
+            ),
+        )
 
     # If agent still asks for the two fields, supply them explicitly
     still_asking = (
