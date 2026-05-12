@@ -3,6 +3,11 @@ import api from "../api/client";
 import StatusCard from "../components/StatusCard";
 
 const EMPTY = {
+  parent_first_name: "",
+  parent_last_name: "",
+  parent_email: "",
+  parent_phone: "",
+  invoice_address: "",
   child_first_name: "",
   child_last_name: "",
   child_ahv_number: "756.",
@@ -98,14 +103,17 @@ export default function ProfilePage({ onLogout }) {
     }
   }
 
-  const hasData = profile.child_first_name || profile.child_last_name;
+  const hasParentData = profile.parent_first_name || profile.parent_last_name;
+  const hasChildData = profile.child_first_name || profile.child_last_name;
+  const parentDisplayName = [profile.parent_first_name, profile.parent_last_name].filter(Boolean).join(" ");
+  const childDisplayName = [profile.child_first_name, profile.child_last_name].filter(Boolean).join(" ");
 
   return (
     <div className="page">
       <div className="page-header">
         <h1 className="page-title">Profile</h1>
         <p className="page-subtitle">
-          Child details used across CareConnect — pre-fills the SVA reimbursement form automatically.
+          Parent details for the person managing Luca Muller’s profile, plus Luca’s child details used across CareConnect.
         </p>
       </div>
 
@@ -113,7 +121,7 @@ export default function ProfilePage({ onLogout }) {
       {success && <StatusCard status="logged" message={success} />}
 
       <div className="section" style={{ maxWidth: "640px" }}>
-        {/* Avatar + name banner */}
+        {/* Managed profile banner */}
         <div
           style={{
             display: "flex",
@@ -140,19 +148,20 @@ export default function ProfilePage({ onLogout }) {
               flexShrink: 0,
             }}
           >
-            {hasData
+              {hasChildData
               ? (profile.child_first_name?.[0] || "") + (profile.child_last_name?.[0] || "")
               : "?"}
           </div>
           <div>
             <div style={{ fontWeight: 700, fontSize: "1.2rem", lineHeight: 1.2 }}>
-              {hasData
-                ? `${profile.child_first_name} ${profile.child_last_name}`.trim()
-                : "No name set"}
+              {childDisplayName || "No child name set"}
+            </div>
+            <div style={{ fontSize: "0.875rem", color: "var(--muted)", marginTop: "0.25rem" }}>
+              Managed by {parentDisplayName || "no parent details yet"}
             </div>
             {profile.child_ahv_number && profile.child_ahv_number !== "756." && (
               <div style={{ fontSize: "0.875rem", color: "var(--muted)", marginTop: "0.25rem" }}>
-                AHV {profile.child_ahv_number}
+                AHV number {profile.child_ahv_number}
               </div>
             )}
             {profile.date_of_birth && (
@@ -165,35 +174,97 @@ export default function ProfilePage({ onLogout }) {
 
         {editing ? (
           <form onSubmit={handleSave}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
-              <div>
-                <label className="form-label">First Name (Vorname) *</label>
-                <input
-                  type="text"
+            <div style={{ marginBottom: "1.25rem" }}>
+              <h3 style={{ marginTop: 0, marginBottom: "0.85rem", fontSize: "1rem" }}>Parent / Guardian Details</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+                <div>
+                  <label className="form-label">First Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g., Anna"
+                    value={draft.parent_first_name}
+                    onChange={(e) => setField("parent_first_name", e.target.value)}
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Last Name</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g., Mueller"
+                    value={draft.parent_last_name}
+                    onChange={(e) => setField("parent_last_name", e.target.value)}
+                  />
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+                <div>
+                  <label className="form-label">Email</label>
+                  <input
+                    type="email"
+                    className="form-input"
+                    placeholder="e.g., parent@example.com"
+                    value={draft.parent_email}
+                    onChange={(e) => setField("parent_email", e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Phone</label>
+                  <input
+                    type="tel"
+                    className="form-input"
+                    placeholder="e.g., +41 79 123 45 67"
+                    value={draft.parent_phone}
+                    onChange={(e) => setField("parent_phone", e.target.value)}
+                  />
+                </div>
+              </div>
+              <div style={{ marginBottom: "1rem" }}>
+                <label className="form-label">Invoice Address</label>
+                <textarea
                   className="form-input"
-                  placeholder="e.g., Luca"
-                  value={draft.child_first_name}
-                  onChange={(e) => setField("child_first_name", e.target.value)}
-                  required
-                  autoFocus
+                  rows={3}
+                  placeholder="Street, postal code, city, country"
+                  value={draft.invoice_address}
+                  onChange={(e) => setField("invoice_address", e.target.value)}
+                  style={{ resize: "vertical" }}
                 />
               </div>
-              <div>
-                <label className="form-label">Last Name (Familienname) *</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="e.g., Müller"
-                  value={draft.child_last_name}
-                  onChange={(e) => setField("child_last_name", e.target.value)}
-                  required
-                />
+            </div>
+
+            <div style={{ marginBottom: "1.25rem" }}>
+              <h3 style={{ marginTop: 0, marginBottom: "0.85rem", fontSize: "1rem" }}>Child Details</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
+                <div>
+                  <label className="form-label">First Name *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g., Luca"
+                    value={draft.child_first_name}
+                    onChange={(e) => setField("child_first_name", e.target.value)}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="form-label">Last Name *</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="e.g., Mueller"
+                    value={draft.child_last_name}
+                    onChange={(e) => setField("child_last_name", e.target.value)}
+                    required
+                  />
+                </div>
               </div>
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
               <div>
-                <label className="form-label">AHV-Nummer</label>
+                <label className="form-label">AHV Number</label>
                 <input
                   type="text"
                   className="form-input"
@@ -212,7 +283,6 @@ export default function ProfilePage({ onLogout }) {
                 />
               </div>
             </div>
-
             <div style={{ marginBottom: "1.5rem" }}>
               <label className="form-label">Notes</label>
               <textarea
@@ -236,12 +306,41 @@ export default function ProfilePage({ onLogout }) {
           </form>
         ) : (
           <>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.25rem" }}>
+              <div style={{ padding: "1rem", border: "1px solid var(--border)", borderRadius: "12px", background: "#fafbfc" }}>
+                <div style={{ fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", fontWeight: 700, marginBottom: "0.5rem" }}>
+                  Parent / Guardian
+                </div>
+                <div style={{ fontWeight: 600 }}>{parentDisplayName || "No parent name set"}</div>
+                <div style={{ color: "var(--muted)", fontSize: "0.9rem", marginTop: "0.25rem" }}>{profile.parent_email || "No email set"}</div>
+                <div style={{ color: "var(--muted)", fontSize: "0.9rem", marginTop: "0.15rem" }}>{profile.parent_phone || "No phone set"}</div>
+                <div style={{ color: "var(--muted)", fontSize: "0.9rem", marginTop: "0.15rem" }}>{profile.invoice_address || "No invoice address set"}</div>
+              </div>
+              <div style={{ padding: "1rem", border: "1px solid var(--border)", borderRadius: "12px", background: "#fafbfc" }}>
+                <div style={{ fontSize: "0.78rem", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", fontWeight: 700, marginBottom: "0.5rem" }}>
+                  Child
+                </div>
+                <div style={{ fontWeight: 600 }}>{childDisplayName || "No child name set"}</div>
+                <div style={{ color: "var(--muted)", fontSize: "0.9rem", marginTop: "0.25rem" }}>{profile.child_ahv_number || "No AHV number set"}</div>
+                <div style={{ color: "var(--muted)", fontSize: "0.9rem", marginTop: "0.15rem" }}>
+                  {profile.date_of_birth
+                    ? new Date(profile.date_of_birth).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })
+                    : "No date of birth set"}
+                </div>
+              </div>
+            </div>
+
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem", marginBottom: "1.5rem" }}>
               <tbody>
                 {[
-                  { label: "First Name", value: profile.child_first_name },
-                  { label: "Last Name", value: profile.child_last_name },
-                  { label: "AHV-Nummer", value: profile.child_ahv_number },
+                  { label: "Parent First Name", value: profile.parent_first_name },
+                  { label: "Parent Last Name", value: profile.parent_last_name },
+                  { label: "Parent Email", value: profile.parent_email },
+                  { label: "Parent Phone", value: profile.parent_phone },
+                  { label: "Invoice Address", value: profile.invoice_address },
+                  { label: "Child First Name", value: profile.child_first_name },
+                  { label: "Child Last Name", value: profile.child_last_name },
+                  { label: "AHV Number", value: profile.child_ahv_number },
                   {
                     label: "Date of Birth",
                     value: profile.date_of_birth
@@ -277,9 +376,9 @@ export default function ProfilePage({ onLogout }) {
               Edit Profile
             </button>
 
-            {!hasData && (
+            {!hasChildData && !hasParentData && (
               <p style={{ fontSize: "0.875rem", color: "var(--muted)", marginTop: "1rem" }}>
-                Add the child's details here — they will be used to pre-fill the SVA Form 5050 automatically.
+                Add the parent and child details here — they will be used across CareConnect automatically.
               </p>
             )}
           </>

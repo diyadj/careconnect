@@ -4,7 +4,7 @@ import uuid
 import asyncio
 import httpx
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
@@ -15,8 +15,15 @@ from .invoice import (
     WXO_API_KEY,
     WXO_INSTANCE_ID,
 )
+from .profile import read_profile
 
 WXO_EMAIL_AGENT_ID = os.getenv("WXO_EMAIL_AGENT_ID")
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_FROM_NUMBER = os.getenv("TWILIO_FROM_NUMBER")
+
+# Hardcoded cancellation destination requested by product owner.
+TIXI_CANCELLATION_NUMBER = "+41795106281"
 
 router = APIRouter()
 
@@ -63,6 +70,13 @@ class RideUpdate(BaseModel):
     ride_type: Optional[str] = None
     kilometers_driven: Optional[float] = None
     notes: Optional[str] = None
+
+
+class CancelRideRequest(BaseModel):
+    date: str
+    from_location: str = Field(alias="from")
+    to_location: str = Field(alias="to")
+    purpose: Optional[str] = ""
 
 
 # ---------- endpoints ----------
@@ -158,6 +172,9 @@ async def send_tixi_email(year: Optional[int] = None):
     table = "\n".join(table_rows)
 
     count = len(tixi_rides)
+    profile = read_profile()
+    invoice_address = (profile.get("invoice_address") or "").strip()
+    invoice_address_block = f"Invoice address:\n{invoice_address}\n\n" if invoice_address else ""
     agent_message = (
         f"Please send an Outlook email to {taxi_email} with the following details:\n\n"
         f"Subject: TixiTaxi Rides {target_year} – CareConnect\n\n"
@@ -166,6 +183,7 @@ async def send_tixi_email(year: Optional[int] = None):
         f"Please find below the TixiTaxi rides planned for {target_year} "
         f"({count} ride{'s' if count != 1 else ''}):\n\n"
         f"{table}\n\n"
+        f"{invoice_address_block}"
         f"Best regards,\nCareConnect"
     )
 
@@ -190,6 +208,63 @@ async def send_tixi_email(year: Optional[int] = None):
         await wait_for_run_completion(run_id, timeout_seconds=30)
 
     return {"status": "sent", "to": taxi_email, "count": count}
+
+
+@router.post("/cancel-ride")
+async def cancel_ride(request: CancelRideRequest):
+    """Initiate a phone call to TixiTaxi to cancel a ride."""
+    missing = [
+        name
+        for name, val in [
+            ("TWILIO_ACCOUNT_SID", TWILIO_ACCOUNT_SID),
+            ("TWILIO_AUTH_TOKEN", TWILIO_AUTH_TOKEN),
+            ("TWILIO_FROM_NUMBER", TWILIO_FROM_NUMBER),
+        ]
+        if not val
+    ]
+    if missing:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Cancellation calling is not configured. Add to backend/.env: {', '.join(missing)}",
+        )
+
+    twiml_message = (
+        "Hello. This is CareConnect calling to cancel a TixiTaxi ride. "
+        f"Date: {request.date}. "
+        f"From: {request.from_location}. "
+        f"To: {request.to_location}. "
+        f"Purpose: {request.purpose or 'not specified'}. "
+        "Please confirm this cancellation. Thank you."
+    )
+    twiml = f"<Response><Say voice=\"alice\">{twiml_message}</Say></Response>"
+
+    twilio_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Calls.json"
+    payload = {
+        "To": TIXI_CANCELLATION_NUMBER,
+        "From": TWILIO_FROM_NUMBER,
+        "Twiml": twiml,
+    }
+
+    async with httpx.AsyncClient(timeout=20) as client:
+        try:
+            response = await client.post(
+                twilio_url,
+                data=payload,
+                auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
+            )
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=502, detail=f"Failed to reach Twilio: {exc}") from exc
+
+    if response.status_code >= 400:
+        raise HTTPException(status_code=500, detail=f"Twilio call failed: {response.text}")
+
+    data = response.json()
+    return {
+        "status": "call_initiated",
+        "call_sid": data.get("sid"),
+        "to": TIXI_CANCELLATION_NUMBER,
+        "from": TWILIO_FROM_NUMBER,
+    }
 
 
 @router.patch("/{ride_id}")

@@ -16,22 +16,6 @@
       "created_at": "2026-04-27T17:45:03.889081",
       "updated_at": "2026-04-27T17:45:03.889081"
     },
-    "2a9af2be-b215-4439-aa23-30b4ce88b041": {
-      "id": "2a9af2be-b215-4439-aa23-30b4ce88b041",
-      "date": "2026-03-28",
-      "time": "23:41",
-      "origin": "Zurich",
-      "destination": "Frauenfeld",
-      "appointment_type": "Medical",
-      "ride_type": "public_transport",
-      "kilometers_driven": null,
-      "notes": "",
-      "status": "requested",
-      "confirmed_time": null,
-      "year": 2026,
-      "created_at": "2026-04-27T17:46:16.639409",
-      "updated_at": "2026-04-27T17:46:16.639409"
-    },
     "116f3409-77ff-4719-b5ca-7129fc6bde4f": {
       "id": "116f3409-77ff-4719-b5ca-7129fc6bde4f",
       "date": "2026-04-30",
@@ -46,19 +30,35 @@
       "created_at": "2026-04-29T17:42:25.940305",
       "updated_at": "2026-04-29T17:42:25.940305"
     },
-    "82ba67d6-cda7-4110-9b32-6d1e30e3903d": {
-      "id": "82ba67d6-cda7-4110-9b32-6d1e30e3903d",
-      "date": "2026-05-08",
-      "time": "18:45",
-      "origin": "Hallejuah",
-      "destination": "Therapy Center",
-      "appointment_type": "OM SHANTI",
+    "c5d09dd5-75b4-4eb9-8651-64465371b145": {
+      "id": "c5d09dd5-75b4-4eb9-8651-64465371b145",
+      "date": "2026-05-12",
+      "time": "17:20",
+      "origin": "Zurich",
+      "destination": "Lucern",
+      "appointment_type": "Medical Appointment ",
       "ride_type": "tixitaxi",
       "kilometers_driven": null,
+      "cost_chf": null,
       "notes": "",
       "year": 2026,
-      "created_at": "2026-04-29T17:45:49.966010",
-      "updated_at": "2026-04-29T17:45:49.966010"
+      "created_at": "2026-05-12T16:20:52.340875",
+      "updated_at": "2026-05-12T16:20:52.340875"
+    },
+    "a490b8a3-66a9-46cd-bd38-c707e717fddf": {
+      "id": "a490b8a3-66a9-46cd-bd38-c707e717fddf",
+      "date": "2026-05-20",
+      "time": "09:25",
+      "origin": "St Gallen",
+      "destination": "Somewhere",
+      "appointment_type": "Therapy",
+      "ride_type": "private_car",
+      "kilometers_driven": 9.8,
+      "cost_chf": 6.86,
+      "notes": "",
+      "year": 2026,
+      "created_at": "2026-05-12T16:21:39.897666",
+      "updated_at": "2026-05-12T16:21:39.897666"
     }
   }
 }

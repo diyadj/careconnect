@@ -22,6 +22,7 @@ router = APIRouter()
 WXO_API_KEY = os.getenv("WXO_API_KEY")
 WXO_INSTANCE_ID = os.getenv("WXO_INSTANCE_ID")
 WXO_AGENT_ID = os.getenv("WXO_AGENT_ID")
+WXO_INVOICE_AGENT_ID = os.getenv("WXO_INVOICE_AGENT_ID")
 WXO_REGION = os.getenv("WXO_REGION")
 WXO_URL = os.getenv("WXO_URL")
 WXO_AUTH_TYPE = os.getenv("WXO_AUTH_TYPE", "mcsp")
@@ -171,8 +172,8 @@ def ensure_wxo_config():
     missing = []
     if not WXO_INSTANCE_ID:
         missing.append("WXO_INSTANCE_ID")
-    if not WXO_AGENT_ID:
-        missing.append("WXO_AGENT_ID")
+    if not (WXO_INVOICE_AGENT_ID or WXO_AGENT_ID):
+        missing.append("WXO_INVOICE_AGENT_ID or WXO_AGENT_ID")
     if not WXO_API_KEY:
         missing.append("WXO_API_KEY")
 
@@ -468,16 +469,34 @@ async def create_run(
     message: str,
     thread_id: Optional[str] = None,
     file_urls: Optional[List[dict]] = None,
+    agent_id: Optional[str] = None,
+    image_bytes: Optional[bytes] = None,
+    image_mime: str = "image/jpeg",
 ) -> dict:
     """Create an Orchestrate run and return run metadata."""
     ensure_wxo_config()
     url = get_runs_endpoint()
+
+    # Build message content — WatsonX Orchestrate uses "response_type" (not OpenAI "type")
+    if image_bytes:
+        content = [
+            {"response_type": "text", "text": message},
+            {
+                "response_type": "image_url",
+                "image_url": {
+                    "url": f"data:{image_mime};base64,{base64.b64encode(image_bytes).decode()}"
+                },
+            },
+        ]
+    else:
+        content = message
+
     payload = {
         "message": {
             "role": "user",
-            "content": message,
+            "content": content,
         },
-        "agent_id": WXO_AGENT_ID,
+        "agent_id": agent_id or WXO_INVOICE_AGENT_ID or WXO_AGENT_ID,
         "capture_logs": False,
     }
 
@@ -664,7 +683,35 @@ async def start_invoice_agent(request: StartAgentRequest):
 
     message = "I want to match and submit my invoices"
 
-    run_response = await create_run(message)
+    stored_files = []
+    session_data = sessions_storage.get(session_key, {})
+    for file_key, filename_key in (("tixi_file_content", "tixi_filename"), ("meal_file_content", "meal_filename")):
+        file_content = session_data.get(file_key)
+        if file_content:
+            stored_files.append(
+                {
+                    "filename": session_data.get(filename_key) or "uploaded_file",
+                    "content": file_content,
+                }
+            )
+
+    uploaded_file_urls = None
+    if stored_files:
+        try:
+            uploaded_file_urls = await upload_files_to_wxo(stored_files, text="invoice start upload")
+        except HTTPException:
+            uploaded_file_urls = None
+
+    if stored_files and not uploaded_file_urls:
+        attachments_block = build_base64_attachments_block(stored_files)
+        message = (
+            f"{message}\n\n"
+            "Attached files are included below as base64 payloads. "
+            "Please decode and use them directly for processing.\n"
+            f"FILES_BASE64_JSON: {attachments_block}"
+        ).strip()
+
+    run_response = await create_run(message, file_urls=uploaded_file_urls)
     thread_id = run_response.get("thread_id")
     run_id = run_response.get("run_id")
 

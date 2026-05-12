@@ -111,6 +111,9 @@ export default function RidePlanningPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [cancelRide, setCancelRide] = useState(null);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [cancelToast, setCancelToast] = useState(null);
 
   // Edit mode state
   const [editingId, setEditingId] = useState(null);
@@ -118,6 +121,12 @@ export default function RidePlanningPage() {
   // Email send state
   const [emailSending, setEmailSending] = useState(false);
   const [emailResult, setEmailResult] = useState(null);
+
+  useEffect(() => {
+    if (!cancelToast) return;
+    const timer = setTimeout(() => setCancelToast(null), 4500);
+    return () => clearTimeout(timer);
+  }, [cancelToast]);
 
   useEffect(() => {
     loadRides();
@@ -233,6 +242,62 @@ export default function RidePlanningPage() {
     } catch (err) {
       setError("Failed to delete ride.");
       console.error(err);
+    }
+  }
+
+  function isTaxiRide(ride) {
+    const kind = String(ride?.ride_type || "").toLowerCase();
+    return kind === "taxi" || kind === "tixi_taxi" || kind === "tixitaxi";
+  }
+
+  function handleOpenCancelModal(ride) {
+    setError(null);
+    setSuccess(null);
+    setCancelRide(ride);
+  }
+
+  function handleCloseCancelModal() {
+    if (cancelSubmitting) return;
+    setCancelRide(null);
+  }
+
+  async function handleConfirmCancelRide() {
+    if (!cancelRide) return;
+
+    setCancelSubmitting(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const payload = {
+        date: cancelRide.date,
+        from: cancelRide.origin,
+        to: cancelRide.destination,
+        purpose: cancelRide.appointment_type || "",
+      };
+
+      const res = await api.post("/rides/cancel-ride", payload);
+      const callSid =
+        res?.data?.call_sid ||
+        res?.data?.callSid ||
+        res?.data?.sid ||
+        res?.data?.CallSid ||
+        null;
+
+      setCancelToast({
+        ok: true,
+        message: callSid
+          ? `Call initiated to TixiTaxi (SID: ${callSid})`
+          : "Call initiated to TixiTaxi",
+      });
+      setCancelRide(null);
+    } catch (err) {
+      setCancelToast({
+        ok: false,
+        message: err.response?.data?.detail || "Failed to initiate cancellation call.",
+      });
+    } finally {
+      setCancelSubmitting(false);
     }
   }
 
@@ -380,6 +445,27 @@ export default function RidePlanningPage() {
       {/* Status Messages */}
       {error && <StatusCard status="error" message={error} />}
       {success && <StatusCard status="logged" message={success} />}
+      {cancelToast && (
+        <div
+          style={{
+            position: "fixed",
+            top: "1.25rem",
+            right: "1.25rem",
+            zIndex: 40,
+            background: cancelToast.ok ? "#ecfeff" : "#fff1f2",
+            border: `1px solid ${cancelToast.ok ? "#a5f3fc" : "#fecdd3"}`,
+            color: cancelToast.ok ? "#0f766e" : "#be123c",
+            borderRadius: "10px",
+            padding: "0.65rem 0.85rem",
+            boxShadow: "0 8px 20px rgba(15, 23, 42, 0.12)",
+            fontSize: "0.86rem",
+            fontWeight: 500,
+            maxWidth: "340px",
+          }}
+        >
+          {cancelToast.message}
+        </div>
+      )}
 
       {/* Rides List */}
       <div className="section" style={{ marginTop: "2rem" }}>
@@ -415,6 +501,8 @@ export default function RidePlanningPage() {
                 ride={ride}
                 onEdit={handleEditRide}
                 onDelete={handleDeleteRide}
+                onCancel={handleOpenCancelModal}
+                canCancel={isTaxiRide(ride)}
                 isEditing={editingId === ride.id}
               />
             ))}
@@ -464,11 +552,20 @@ export default function RidePlanningPage() {
           {emailSending ? "Sending…" : "Book TixiTaxi Rides"}
         </button>
       </div>
+
+      {cancelRide && (
+        <CancelRideModal
+          ride={cancelRide}
+          loading={cancelSubmitting}
+          onClose={handleCloseCancelModal}
+          onConfirm={handleConfirmCancelRide}
+        />
+      )}
     </div>
   );
 }
 
-function RideCard({ ride, onEdit, onDelete, isEditing }) {
+function RideCard({ ride, onEdit, onDelete, onCancel, canCancel, isEditing }) {
   return (
     <div
       className="ride-card"
@@ -510,6 +607,22 @@ function RideCard({ ride, onEdit, onDelete, isEditing }) {
           >
             Edit
           </button>
+          {canCancel && (
+            <button
+              onClick={() => onCancel(ride)}
+              className="btn"
+              style={{
+                padding: "0.45rem 0.75rem",
+                fontSize: "0.85rem",
+                background: "#f59e0b",
+                color: "#ffffff",
+                border: "1px solid #f59e0b",
+                borderRadius: "8px",
+              }}
+            >
+              Cancel
+            </button>
+          )}
           <button
             onClick={() => onDelete(ride.id)}
             className="btn btn-secondary"
@@ -536,6 +649,93 @@ function RideCard({ ride, onEdit, onDelete, isEditing }) {
           Notes: {ride.notes}
         </div>
       )}
+    </div>
+  );
+}
+
+function CancelRideModal({ ride, loading, onClose, onConfirm }) {
+  const friendlyDateTime = `${formatDate(ride.date)} at ${ride.time}`;
+  const preview = `Calling TixiTaxi to cancel your ride on ${ride.date} from ${ride.origin} to ${ride.destination}.`;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(15, 23, 42, 0.35)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1rem",
+        zIndex: 50,
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="section"
+        style={{
+          width: "min(520px, 100%)",
+          borderRadius: "12px",
+          border: "1px solid #c8e6e9",
+          background: "#f8fcfd",
+          boxShadow: "0 18px 36px rgba(15, 23, 42, 0.18)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 style={{ marginTop: 0, marginBottom: "0.8rem", color: "#0e7c86" }}>Cancel Taxi Ride</h3>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem", marginBottom: "0.9rem" }}>
+          <div>
+            <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginBottom: "0.15rem" }}>Date & Time</div>
+            <div style={{ fontWeight: 600 }}>{friendlyDateTime}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginBottom: "0.15rem" }}>Purpose</div>
+            <div style={{ fontWeight: 600 }}>{ride.appointment_type || "-"}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginBottom: "0.15rem" }}>From</div>
+            <div style={{ fontWeight: 600 }}>{ride.origin}</div>
+          </div>
+          <div>
+            <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginBottom: "0.15rem" }}>To</div>
+            <div style={{ fontWeight: 600 }}>{ride.destination}</div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            border: "1px solid #bae6fd",
+            borderRadius: "10px",
+            background: "#eff6ff",
+            color: "#1e3a8a",
+            fontSize: "0.9rem",
+            padding: "0.7rem 0.8rem",
+            marginBottom: "1rem",
+            lineHeight: 1.45,
+          }}
+        >
+          {preview}
+        </div>
+
+        <div className="button-row" style={{ justifyContent: "flex-end", gap: "0.5rem" }}>
+          <button className="btn btn-secondary" onClick={onClose} disabled={loading}>
+            Go Back
+          </button>
+          <button
+            className="btn"
+            onClick={onConfirm}
+            disabled={loading}
+            style={{
+              background: "#f59e0b",
+              color: "#ffffff",
+              border: "1px solid #f59e0b",
+            }}
+          >
+            {loading ? "Calling..." : "Confirm & Call"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

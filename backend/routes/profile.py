@@ -9,6 +9,11 @@ router = APIRouter()
 PROFILE_FILE = os.path.join(os.path.dirname(__file__), "../data/profile.json")
 
 DEFAULT_PROFILE = {
+    "parent_first_name": "",
+    "parent_last_name": "",
+    "parent_email": "",
+    "parent_phone": "",
+    "invoice_address": "",
     "child_first_name": "",
     "child_last_name": "",
     "child_ahv_number": "756.",
@@ -37,6 +42,11 @@ def write_profile(data: dict):
 
 
 class ProfileUpdate(BaseModel):
+    parent_first_name: Optional[str] = None
+    parent_last_name: Optional[str] = None
+    parent_email: Optional[str] = None
+    parent_phone: Optional[str] = None
+    invoice_address: Optional[str] = None
     child_first_name: Optional[str] = None
     child_last_name: Optional[str] = None
     child_ahv_number: Optional[str] = None
@@ -57,7 +67,19 @@ def get_profile():
 @router.put("")
 def update_profile(updates: ProfileUpdate):
     profile = read_profile()
-    for field in ("child_first_name", "child_last_name", "child_ahv_number", "date_of_birth", "notes", "account_username"):
+    for field in (
+        "parent_first_name",
+        "parent_last_name",
+        "parent_email",
+        "parent_phone",
+        "invoice_address",
+        "child_first_name",
+        "child_last_name",
+        "child_ahv_number",
+        "date_of_birth",
+        "notes",
+        "account_username",
+    ):
         val = getattr(updates, field)
         if val is not None:
             profile[field] = val
