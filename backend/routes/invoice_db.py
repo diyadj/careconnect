@@ -184,22 +184,89 @@ def update_invoice(inv_id: str, updates: InvoiceUpdate):
     return inv
 
 
-def _parse_form_row(text: str, behandlungsgrund: str, behandlungsort: str) -> Optional[dict]:
-    """Parse FormRow fields from agent response text (JSON block or formatted block)."""
+def _parse_form_row(text: str, appointment_reason: str, appointment_address: str) -> Optional[dict]:
+    """Parse extracted receipt fields from agent/flow response text."""
     if not text:
         return None
 
-    # Try JSON first — agent returns FormRow as JSON after step-5 confirmation
+    # Path 1: old ADK agent returns FormRow as JSON with German key "reisedatum"
     json_match = re.search(r'\{[\s\S]*?"reisedatum"[\s\S]*?\}', text)
     if json_match:
         try:
             data = json.loads(json_match.group())
             if data.get("reisedatum"):
+                if not data.get("behandlungsgrund"):
+                    data["behandlungsgrund"] = appointment_reason
+                if not data.get("behandlungsort"):
+                    data["behandlungsort"] = appointment_address
                 return data
         except (json.JSONDecodeError, ValueError):
             pass
 
-    # Fallback: parse the step-4 formatted block
+    # Path 2: WatsonX Flow Builder JSON output (invoice_details wrapper or flat object)
+    flow_json_match = re.search(r'\{[\s\S]*?"invoice_details"[\s\S]*?\}(?=\s*\})', text)
+    if not flow_json_match:
+        flow_json_match = re.search(r'\{[\s\S]*?\}', text)
+    if flow_json_match:
+        try:
+            outer = json.loads(flow_json_match.group())
+            d = outer.get("invoice_details") if isinstance(outer.get("invoice_details"), dict) else outer
+            raw_date = str(d.get("date") or d.get("Date") or "")
+            raw_cost = d.get("cost") if d.get("cost") is not None else d.get("Cost")
+            if raw_date and raw_cost is not None:
+                swiss = re.match(r'(\d{1,2})[./](\d{1,2})[./](\d{4})', raw_date)
+                iso = re.match(r'(\d{4})-(\d{2})-(\d{2})', raw_date)
+                if swiss:
+                    norm_date = f"{swiss.group(3)}-{swiss.group(2).zfill(2)}-{swiss.group(1).zfill(2)}"
+                elif iso:
+                    norm_date = raw_date[:10]
+                else:
+                    norm_date = None
+                try:
+                    cost = float(str(raw_cost).replace(",", "."))
+                except ValueError:
+                    cost = None
+                if norm_date and cost is not None:
+                    return {
+                        "reisedatum": norm_date,
+                        "behandlungsgrund": d.get("appointment_reason") or appointment_reason,
+                        "behandlungsort": d.get("appointment_address") or d.get("appointment_location") or appointment_address,
+                        "billetpreis_ov": cost,
+                        "privatauto": None,
+                        "taxi": None,
+                        "total": cost,
+                    }
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    # Path 3: WatsonX Flow "Display message" plain text, e.g.:
+    #   Date: 2026-05-01, Cost: 12.50, Location from: Gossau, Location to: St. Gallen
+    eng_date_match = re.search(r'Date:\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[./]\d{1,2}[./]\d{4})', text, re.IGNORECASE)
+    eng_cost_match = re.search(r'Cost:\s*([\d]+[.,]?[\d]*)', text, re.IGNORECASE)
+    if eng_date_match and eng_cost_match:
+        raw = eng_date_match.group(1)
+        swiss = re.match(r'(\d{1,2})[./](\d{1,2})[./](\d{4})', raw)
+        iso = re.match(r'(\d{4})-(\d{2})-(\d{2})', raw)
+        norm_date = (
+            f"{swiss.group(3)}-{swiss.group(2).zfill(2)}-{swiss.group(1).zfill(2)}" if swiss
+            else raw[:10] if iso else None
+        )
+        try:
+            cost = float(eng_cost_match.group(1).replace(",", "."))
+        except ValueError:
+            cost = None
+        if norm_date and cost is not None:
+            return {
+                "reisedatum": norm_date,
+                "behandlungsgrund": appointment_reason,
+                "behandlungsort": appointment_address,
+                "billetpreis_ov": cost,
+                "privatauto": None,
+                "taxi": None,
+                "total": cost,
+            }
+
+    # Path 4: old ADK agent formatted text block (German labels)
     date_match = re.search(r'Reisedatum:\s*(\d{1,2}[./]\d{1,2}[./]\d{4})', text)
     ov_match = re.search(r'Billetpreis[^:\n]*:\s*CHF\s*([\d.,]+)', text, re.IGNORECASE)
     privat_match = re.search(r'Privatauto:\s*CHF\s*([\d.,]+)', text, re.IGNORECASE)
@@ -227,8 +294,8 @@ def _parse_form_row(text: str, behandlungsgrund: str, behandlungsort: str) -> Op
 
     result = {
         "reisedatum": reisedatum,
-        "behandlungsgrund": behandlungsgrund,
-        "behandlungsort": behandlungsort,
+        "behandlungsgrund": appointment_reason,
+        "behandlungsort": appointment_address,
         "billetpreis_ov": _chf(ov_match),
         "privatauto": _chf(privat_match),
         "taxi": _chf(taxi_match),
@@ -240,8 +307,8 @@ def _parse_form_row(text: str, behandlungsgrund: str, behandlungsort: str) -> Op
 @router.post("/agent-extract")
 async def agent_extract_invoice(
     file: UploadFile = File(...),
-    behandlungsgrund: str = Form(...),
-    behandlungsort: str = Form(...),
+    appointment_reason: str = Form(...),
+    appointment_address: str = Form(...),
     year: Optional[int] = Form(None),
 ):
     """Send a receipt to the WatsonX invoice extraction agent, auto-confirm, and save the record."""
@@ -265,9 +332,9 @@ async def agent_extract_invoice(
 
     context_message = (
         f"Here is my Swiss transport receipt. "
-        f"The appointment reason (Behandlungsgrund) is: {behandlungsgrund}. "
-        f"The care provider and location (Behandlungsort) is: {behandlungsort}. "
-        f"Please extract the receipt details and assemble the SVA Form 5050 row."
+        f"The appointment reason is: {appointment_reason}. "
+        f"The appointment address is: {appointment_address}. "
+        f"Please extract the receipt details (date, cost, transport type) and return them."
     )
 
     # Compress image to JPEG ≤1024px so it fits in the vision model's context window.
@@ -306,15 +373,16 @@ async def agent_extract_invoice(
     msg1 = await get_latest_assistant_message(thread_id)
     text1 = extract_text_from_message(msg1) if msg1 else ""
 
-    # If agent still asks for the two missing fields, supply them explicitly
+    # If agent still asks for the two fields, supply them explicitly
     still_asking = (
-        any(kw in text1.lower() for kw in ["behandlungsgrund", "appointment", "reason for", "care provider"])
+        any(kw in text1.lower() for kw in ["appointment reason", "appointment address", "reason for", "care provider"])
         and "does this look correct" not in text1.lower()
         and "Total:" not in text1
+        and "Cost:" not in text1
     )
     if still_asking:
         run2 = await create_run(
-            f"{behandlungsgrund}\n{behandlungsort}",
+            f"Appointment reason: {appointment_reason}\nAppointment address: {appointment_address}",
             thread_id=thread_id,
             agent_id=agent_id,
         )
@@ -337,9 +405,8 @@ async def agent_extract_invoice(
     else:
         final_text = text1
 
-    # Parse FormRow from whichever response has the most data
-    form_row = _parse_form_row(final_text, behandlungsgrund, behandlungsort) \
-        or _parse_form_row(text1, behandlungsgrund, behandlungsort)
+    form_row = _parse_form_row(final_text, appointment_reason, appointment_address) \
+        or _parse_form_row(text1, appointment_reason, appointment_address)
 
     if not form_row:
         raise HTTPException(
@@ -389,9 +456,9 @@ async def agent_extract_invoice(
         "category": "transport",
         "transport_type": transport_type,
         "date": date_str,
-        "vendor": form_row.get("behandlungsort", behandlungsort),
+        "vendor": form_row.get("behandlungsort", appointment_address),
         "amount": round(float(amount), 2),
-        "description": form_row.get("behandlungsgrund", behandlungsgrund),
+        "description": form_row.get("behandlungsgrund", appointment_reason),
         "filename": original_name,
         "stored_name": stored_name,
         "year": int(year_key),

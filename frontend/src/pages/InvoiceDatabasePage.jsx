@@ -43,8 +43,8 @@ function newFileItem(file) {
   return {
     id: crypto.randomUUID(),
     file,
-    behandlungsgrund: "",
-    behandlungsort: "",
+    appointment_reason: "",
+    appointment_address: "",
     status: "idle",   // idle | extracting | saved | error
     result: null,
     error: null,
@@ -135,8 +135,8 @@ export default function InvoiceDatabasePage() {
   async function extractInvoice(id) {
     const item = pendingFiles.find((f) => f.id === id);
     if (!item) return;
-    if (!item.behandlungsgrund.trim() || !item.behandlungsort.trim()) {
-      setError("Please fill in both treatment reason and treatment location before extracting.");
+    if (!item.appointment_reason.trim() || !item.appointment_address.trim()) {
+      setError("Please fill in both appointment reason and appointment address before extracting.");
       return;
     }
 
@@ -145,8 +145,8 @@ export default function InvoiceDatabasePage() {
 
     const fd = new FormData();
     fd.append("file", item.file);
-    fd.append("behandlungsgrund", item.behandlungsgrund.trim());
-    fd.append("behandlungsort", item.behandlungsort.trim());
+    fd.append("appointment_reason", item.appointment_reason.trim());
+    fd.append("appointment_address", item.appointment_address.trim());
     fd.append("year", String(year));
 
     try {
@@ -161,7 +161,7 @@ export default function InvoiceDatabasePage() {
 
   async function extractAll() {
     const ready = pendingFiles.filter(
-      (f) => f.status === "idle" && f.behandlungsgrund.trim() && f.behandlungsort.trim()
+      (f) => f.status === "idle" && f.appointment_reason.trim() && f.appointment_address.trim()
     );
     for (const item of ready) {
       await extractInvoice(item.id);
@@ -244,7 +244,7 @@ export default function InvoiceDatabasePage() {
   ).sort();
 
   const readyCount = pendingFiles.filter(
-    (f) => f.status === "idle" && f.behandlungsgrund.trim() && f.behandlungsort.trim()
+    (f) => f.status === "idle" && f.appointment_reason.trim() && f.appointment_address.trim()
   ).length;
 
   // ── SVA form generation ────────────────────────────────────────────────────
@@ -332,7 +332,7 @@ export default function InvoiceDatabasePage() {
   </div>
   <table>
     <thead><tr>
-      <th>Travel Date</th><th>Treatment Reason</th><th>Treatment Location</th>
+      <th>Travel Date</th><th>Appointment Reason</th><th>Appointment Address</th>
       <th>Public Transport Fare<br>2nd Class</th><th>Private Car</th>
       <th>Taxi and Other<br>Transport Services</th><th>Total</th>
     </tr></thead>
@@ -569,7 +569,7 @@ export default function InvoiceDatabasePage() {
                   </div>
 
                   <div style={{ marginBottom: "1.25rem" }}>
-                    <label className="form-label">Treatment Reason</label>
+                    <label className="form-label">Appointment Reason</label>
                     <input type="text" className="form-input" placeholder="e.g., physiotherapy, doctor visit" value={meta.description} onChange={(e) => setMetaField("description", e.target.value)} />
                   </div>
 
@@ -607,7 +607,7 @@ export default function InvoiceDatabasePage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
               <thead>
                 <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                  {["Date", "Category", "Vendor / Treatment Location", "Treatment Reason", "File", "Amount", ""].map((h) => (
+                  {["Date", "Transport Type", "Appointment Address", "Appointment Reason", "File", "Amount", ""].map((h) => (
                     <th key={h} style={{ padding: "0.6rem 0.75rem", textAlign: h === "Amount" ? "right" : "left", fontWeight: 600, fontSize: "0.8rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{h}</th>
                   ))}
                 </tr>
@@ -697,7 +697,7 @@ export default function InvoiceDatabasePage() {
             </div>
 
             <div style={{ fontSize: "0.82rem", color: "var(--muted)", background: "#fff8e1", border: "1px solid #ffe082", borderRadius: "8px", padding: "0.65rem 0.9rem", marginBottom: "1.25rem", lineHeight: 1.5 }}>
-              <strong>Note:</strong> TixiTaxi and other transport services go in "Taxi and Other Transport Services". Public transport → "Public Transport Fare 2nd Class". Private car → "Private Car" (max CHF 0.70/km). The <em>Treatment Reason</em> and <em>Treatment Location</em> columns are filled from the values you provided during extraction.
+              <strong>Note:</strong> TixiTaxi and other transport services go in "Taxi and Other Transport Services". Public transport → "Public Transport Fare 2nd Class". Private car → "Private Car" (max CHF 0.70/km). The <em>Appointment Reason</em> and <em>Appointment Address</em> columns are filled from the values you entered during extraction.
             </div>
 
             <button className="btn btn-primary" onClick={generateSVAForm} disabled={!svaMonth || svaMonthOptions.length === 0}>
@@ -758,26 +758,26 @@ function FileCard({ item, onUpdate, onExtract, onRemove }) {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
             <div>
               <label className="form-label" style={{ marginBottom: "0.3rem", display: "block" }}>
-                Treatment Reason <span style={{ color: "#ef4444" }}>*</span>
+                Appointment Reason <span style={{ color: "#ef4444" }}>*</span>
               </label>
               <input
                 type="text"
                 className="form-input"
                 placeholder="e.g., physiotherapy, doctor visit"
-                value={item.behandlungsgrund}
-                onChange={(e) => onUpdate({ behandlungsgrund: e.target.value })}
+                value={item.appointment_reason}
+                onChange={(e) => onUpdate({ appointment_reason: e.target.value })}
               />
             </div>
             <div>
               <label className="form-label" style={{ marginBottom: "0.3rem", display: "block" }}>
-                Treatment Location <span style={{ color: "#ef4444" }}>*</span>
+                Appointment Address <span style={{ color: "#ef4444" }}>*</span>
               </label>
               <input
                 type="text"
                 className="form-input"
                 placeholder="e.g., St. Gallen Cantonal Hospital"
-                value={item.behandlungsort}
-                onChange={(e) => onUpdate({ behandlungsort: e.target.value })}
+                value={item.appointment_address}
+                onChange={(e) => onUpdate({ appointment_address: e.target.value })}
               />
             </div>
           </div>
@@ -787,7 +787,7 @@ function FileCard({ item, onUpdate, onExtract, onRemove }) {
               className="btn btn-primary"
               style={{ fontSize: "0.875rem", padding: "0.45rem 1rem" }}
               onClick={onExtract}
-              disabled={!item.behandlungsgrund.trim() || !item.behandlungsort.trim()}
+              disabled={!item.appointment_reason.trim() || !item.appointment_address.trim()}
             >
               Extract &amp; Save
             </button>
