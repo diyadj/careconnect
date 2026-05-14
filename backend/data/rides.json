@@ -1,20 +1,5 @@
 {
   "2026": {
-    "a1b2c3d4-0001-4000-8000-100000000001": {
-      "id": "a1b2c3d4-0001-4000-8000-100000000001",
-      "date": "2026-01-07",
-      "time": "08:30",
-      "origin": "St. Gallen, Gallusstrasse 14",
-      "destination": "Ostschweizer Kinderspital, St. Gallen",
-      "appointment_type": "Neurology",
-      "ride_type": "tixitaxi",
-      "kilometers_driven": null,
-      "cost_chf": null,
-      "notes": "Quarterly neurology check-up",
-      "year": 2026,
-      "created_at": "2026-01-05T09:00:00.000000",
-      "updated_at": "2026-01-05T09:00:00.000000"
-    },
     "a1b2c3d4-0002-4000-8000-100000000002": {
       "id": "a1b2c3d4-0002-4000-8000-100000000002",
       "date": "2026-01-14",
@@ -200,7 +185,7 @@
       "date": "2026-04-28",
       "time": "17:44",
       "origin": "St. Gallen, Gallusstrasse 14",
-      "destination": "Institut für Kinder- und Jugendpsychiatrie, Zürich",
+      "destination": "Institut f\u00c3\u00bcr Kinder- und Jugendpsychiatrie, Z\u00c3\u00bcrich",
       "appointment_type": "Therapy",
       "ride_type": "tixitaxi",
       "kilometers_driven": null,
@@ -214,7 +199,7 @@
       "id": "116f3409-77ff-4719-b5ca-7129fc6bde4f",
       "date": "2026-04-30",
       "time": "19:43",
-      "origin": "Institut für Kinder- und Jugendpsychiatrie, Zürich",
+      "origin": "Institut f\u00c3\u00bcr Kinder- und Jugendpsychiatrie, Z\u00c3\u00bcrich",
       "destination": "St. Gallen, Gallusstrasse 14",
       "appointment_type": "Therapy (return)",
       "ride_type": "tixitaxi",
@@ -245,7 +230,7 @@
       "date": "2026-05-20",
       "time": "09:25",
       "origin": "St. Gallen, Gallusstrasse 14",
-      "destination": "Institut für Kinder- und Jugendpsychiatrie, Zürich",
+      "destination": "Institut f\u00c3\u00bcr Kinder- und Jugendpsychiatrie, Z\u00c3\u00bcrich",
       "appointment_type": "Therapy",
       "ride_type": "private_car",
       "kilometers_driven": 9.8,
