@@ -214,6 +214,15 @@ async def send_tixi_email(year: Optional[int] = None):
 @router.post("/cancel-ride")
 async def cancel_ride(request: CancelRideRequest):
     """Initiate a phone call to TixiTaxi to cancel a ride."""
+    if os.getenv("MOCK_CALLS", "").strip().lower() in {"1", "true", "yes"}:
+        return {
+            "status": "call_initiated",
+            "call_sid": f"MOCK-{uuid.uuid4().hex[:20].upper()}",
+            "to": TIXI_CANCELLATION_NUMBER,
+            "from": os.getenv("TWILIO_FROM_NUMBER", "+10000000000"),
+            "mock": True,
+        }
+
     sid = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
     auth_token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
     from_number = os.getenv("TWILIO_FROM_NUMBER", "").strip()

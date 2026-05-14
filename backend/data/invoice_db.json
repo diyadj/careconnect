@@ -180,7 +180,88 @@
       "stored_name": "6e4fa9d1-ac64-426f-969c-2e0755f6a72e.pdf",
       "year": 2026,
       "created_at": "2026-05-14T17:12:33.574931",
-      "updated_at": "2026-05-14T17:12:33.574931"
+      "updated_at": "2026-05-14T17:12:33.574931",
+      "match_ref": {
+        "date": "2026-05-20",
+        "description": "Therapy",
+        "vendor": "Institut für Kinder- und Jugendpsychiatrie, Zürich"
+      }
+    },
+    "m001-meal-4000-8001-300000000001": {
+      "id": "m001-meal-4000-8001-300000000001",
+      "category": "meal",
+      "transport_type": "",
+      "date": "2026-03-25",
+      "vendor": "Migros Restaurant, St. Gallen",
+      "amount": 14.2,
+      "description": "Meal · General Practitioner",
+      "filename": null,
+      "stored_name": null,
+      "year": 2026,
+      "created_at": "2026-03-25T12:15:00.000000",
+      "updated_at": "2026-03-25T12:15:00.000000",
+      "match_ref": {
+        "date": "2026-03-25",
+        "description": "General Practitioner",
+        "vendor": "Ostschweizer Kinderspital, St. Gallen"
+      }
+    },
+    "m002-meal-4000-8001-300000000002": {
+      "id": "m002-meal-4000-8001-300000000002",
+      "category": "meal",
+      "transport_type": "",
+      "date": "2026-04-08",
+      "vendor": "Bäckerei Seiler, Herisau",
+      "amount": 9.8,
+      "description": "Meal · Psychiatry",
+      "filename": null,
+      "stored_name": null,
+      "year": 2026,
+      "created_at": "2026-04-08T13:00:00.000000",
+      "updated_at": "2026-04-08T13:00:00.000000",
+      "match_ref": {
+        "date": "2026-04-08",
+        "description": "Psychiatry",
+        "vendor": "Psychiatrische Dienste AR, Herisau"
+      }
+    },
+    "m003-meal-4000-8001-300000000003": {
+      "id": "m003-meal-4000-8001-300000000003",
+      "category": "meal",
+      "transport_type": "",
+      "date": "2026-04-28",
+      "vendor": "Café Zähringer, Zürich",
+      "amount": 24.8,
+      "description": "Meal · Therapy",
+      "filename": null,
+      "stored_name": null,
+      "year": 2026,
+      "created_at": "2026-04-28T12:30:00.000000",
+      "updated_at": "2026-04-28T12:30:00.000000",
+      "match_ref": {
+        "date": "2026-04-28",
+        "description": "Therapy",
+        "vendor": "Institut für Kinder- und Jugendpsychiatrie, Zürich"
+      }
+    },
+    "m004-meal-4000-8001-300000000004": {
+      "id": "m004-meal-4000-8001-300000000004",
+      "category": "meal",
+      "transport_type": "",
+      "date": "2026-05-12",
+      "vendor": "Restaurant Galliker, Luzern",
+      "amount": 33.5,
+      "description": "Meal · Medical Appointment",
+      "filename": null,
+      "stored_name": null,
+      "year": 2026,
+      "created_at": "2026-05-12T13:00:00.000000",
+      "updated_at": "2026-05-12T13:00:00.000000",
+      "match_ref": {
+        "date": "2026-05-12",
+        "description": "Medical Appointment",
+        "vendor": "Luzerner Kantonsspital, Luzern"
+      }
     }
   }
 }

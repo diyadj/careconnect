@@ -554,12 +554,12 @@ export default function InvoiceDatabasePage() {
           onDrop={(e) => { e.preventDefault(); setIsMealDragOver(false); addMealsToQueue(e.dataTransfer.files); }}
           onClick={() => mealQueueInputRef.current?.click()}
           style={{
-            border: `2px dashed ${isMealDragOver ? "#a855f7" : "var(--border)"}`,
+            border: `2px dashed ${isMealDragOver ? "var(--primary)" : "var(--border)"}`,
             borderRadius: "12px",
             padding: "1.75rem 2rem",
             textAlign: "center",
             cursor: "pointer",
-            background: isMealDragOver ? "rgba(168,85,247,0.06)" : "#fafbfc",
+            background: isMealDragOver ? "rgba(14,124,134,0.06)" : "#fafbfc",
             transition: "all 150ms ease",
             marginBottom: pendingMeals.length > 0 ? "1.25rem" : 0,
           }}
@@ -780,27 +780,27 @@ export default function InvoiceDatabasePage() {
             {mealRecords.map((meal) => {
               const match = findTransportMatch(meal.date, meal.match_ref);
               return (
-                <div key={meal.id} style={{ display: "grid", gridTemplateColumns: "1fr 40px 1fr", alignItems: "center", gap: "0" }}>
+                <div key={meal.id} style={{ display: "grid", gridTemplateColumns: "1fr 36px 1fr", alignItems: "stretch" }}>
                   {/* Meal card */}
-                  <div style={{ background: "#fdf4ff", border: "1px solid #e9d5ff", borderRadius: "12px 0 0 12px", padding: "1rem 1.25rem" }}>
-                    <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#7c3aed", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.5rem" }}>
+                  <div style={{ background: "#fffbf0", border: "1px solid #ffe0a0", borderRadius: "12px 0 0 12px", padding: "1rem 1.25rem" }}>
+                    <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#b45309", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.5rem" }}>
                       Meal Receipt
                     </div>
                     <div style={{ fontWeight: 600, fontSize: "0.95rem", marginBottom: "0.2rem" }}>{meal.vendor || "—"}</div>
                     <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginBottom: "0.35rem" }}>{formatDate(meal.date)}</div>
-                    <div style={{ fontFamily: "Space Grotesk, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "#7c3aed" }}>
+                    <div style={{ fontFamily: "Space Grotesk, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "#b45309" }}>
                       {fmt(meal.amount)}
                     </div>
                     {meal.filename && (
                       <a href={`/api/invoice-db/file/${meal.id}`} target="_blank" rel="noreferrer"
-                        style={{ display: "inline-block", marginTop: "0.4rem", fontSize: "0.78rem", color: "#7c3aed", textDecoration: "none", opacity: 0.8 }}>
+                        style={{ display: "inline-block", marginTop: "0.4rem", fontSize: "0.78rem", color: "var(--primary)", textDecoration: "none" }}>
                         {meal.filename.endsWith(".pdf") ? "📄" : "🖼️"} View receipt
                       </a>
                     )}
                   </div>
 
-                  {/* Arrow connector */}
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", background: match ? "#f0fdf4" : "#fff8f0", borderTop: `1px solid ${match ? "#bbf7d0" : "#fed7aa"}`, borderBottom: `1px solid ${match ? "#bbf7d0" : "#fed7aa"}`, height: "100%", fontSize: "1.1rem", color: match ? "#16a34a" : "#d97706" }}>
+                  {/* Arrow connector — stretches to card height */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", background: match ? "#f0fdf4" : "#fff8f0", borderTop: `1px solid ${match ? "#bbf7d0" : "#fed7aa"}`, borderBottom: `1px solid ${match ? "#bbf7d0" : "#fed7aa"}`, fontSize: "1rem", color: match ? "#16a34a" : "#d97706" }}>
                     {match ? "→" : "⚠"}
                   </div>
 
@@ -812,9 +812,7 @@ export default function InvoiceDatabasePage() {
                       </div>
                       <div style={{ fontWeight: 600, fontSize: "0.95rem", marginBottom: "0.2rem" }}>{match.description || "Appointment"}</div>
                       <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginBottom: "0.35rem" }}>{match.vendor}</div>
-                      <div style={{ fontSize: "0.82rem", color: "#15803d", fontWeight: 500 }}>
-                        ✓ {formatDate(match.date)}
-                      </div>
+                      <div style={{ fontSize: "0.82rem", color: "#15803d", fontWeight: 500 }}>✓ {formatDate(match.date)}</div>
                     </div>
                   ) : (
                     <div style={{ background: "#fff8f0", border: "1px solid #fed7aa", borderRadius: "0 12px 12px 0", padding: "1rem 1.25rem" }}>
@@ -1023,8 +1021,8 @@ function FileCard({ item, onUpdate, onExtract, onRemove }) {
 }
 
 function MealFileCard({ item, onUpdate, onExtract, onRemove }) {
-  const statusColors = { idle: "#f4f6f8", extracting: "#fdf4ff", saved: "#f0fdf4", error: "#fff5f5" };
-  const statusBorders = { idle: "var(--border)", extracting: "#e9d5ff", saved: "#bbf7d0", error: "#fecaca" };
+  const statusColors = { idle: "#f4f6f8", extracting: "#fffbf0", saved: "#f0fdf4", error: "#fff5f5" };
+  const statusBorders = { idle: "var(--border)", extracting: "#ffe0a0", saved: "#bbf7d0", error: "#fecaca" };
 
   return (
     <div style={{ border: `1px solid ${statusBorders[item.status]}`, borderRadius: "12px", padding: "1rem 1.25rem", background: statusColors[item.status], transition: "all 200ms ease" }}>
@@ -1035,7 +1033,7 @@ function MealFileCard({ item, onUpdate, onExtract, onRemove }) {
           <span style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 400 }}>({(item.file.size / 1024).toFixed(0)} KB)</span>
         </span>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          {item.status === "extracting" && <span style={{ fontSize: "0.8rem", color: "#a855f7", fontWeight: 500 }}>Extracting…</span>}
+          {item.status === "extracting" && <span style={{ fontSize: "0.8rem", color: "var(--primary)", fontWeight: 500 }}>Extracting…</span>}
           {item.status === "saved" && <span style={{ fontSize: "0.82rem", color: "#16a34a", fontWeight: 600 }}>✓ Saved</span>}
           {item.status === "error" && <span style={{ fontSize: "0.82rem", color: "#dc2626", fontWeight: 600 }}>✗ Failed</span>}
           {(item.status === "idle" || item.status === "error") && (
@@ -1047,7 +1045,7 @@ function MealFileCard({ item, onUpdate, onExtract, onRemove }) {
 
       {item.status === "idle" && (
         <button type="button" className="btn btn-primary"
-          style={{ fontSize: "0.875rem", padding: "0.45rem 1rem", background: "#a855f7", borderColor: "#a855f7" }}
+          style={{ fontSize: "0.875rem", padding: "0.45rem 1rem" }}
           onClick={onExtract}>
           Extract &amp; Match
         </button>
@@ -1074,7 +1072,7 @@ function MealFileCard({ item, onUpdate, onExtract, onRemove }) {
               <span style={{ color: "var(--muted)" }}>· {formatDate(item.matchInfo.date)}</span>
             </div>
           ) : (
-            <div style={{ marginTop: "0.35rem", fontSize: "0.8rem", color: "#d97706" }}>
+            <div style={{ marginTop: "0.35rem", fontSize: "0.8rem", color: "#b45309" }}>
               ⚠ No appointment found within ±1 day — saved as unmatched meal
             </div>
           )}
@@ -1098,7 +1096,7 @@ function MealFileCard({ item, onUpdate, onExtract, onRemove }) {
 function CategoryBadge({ inv }) {
   if (inv.category === "meal") {
     return (
-      <span style={{ display: "inline-block", background: "#ede9fe", color: "#5b21b6", borderRadius: "999px", padding: "0.2rem 0.65rem", fontSize: "0.78rem", fontWeight: 600 }}>
+      <span style={{ display: "inline-block", background: "#fff0cc", color: "#92570a", borderRadius: "999px", padding: "0.2rem 0.65rem", fontSize: "0.78rem", fontWeight: 600 }}>
         Meal
       </span>
     );
