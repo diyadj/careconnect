@@ -213,16 +213,19 @@ export default function InvoiceDatabasePage() {
     }
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm("Delete this invoice record and its file?")) return;
+  async function handleDelete(id, source) {
+    const msg = source === "ride"
+      ? "Remove this ride from the records?"
+      : "Delete this invoice record and its file?";
+    if (!window.confirm(msg)) return;
     setError(null);
     setSuccess(null);
     try {
-      await api.delete(`/invoice-db/${id}`);
-      setSuccess("Invoice deleted.");
+      await api.delete(source === "ride" ? `/rides/${id}` : `/invoice-db/${id}`);
+      setSuccess(source === "ride" ? "Ride removed." : "Invoice deleted.");
       await loadInvoices();
     } catch {
-      setError("Failed to delete invoice.");
+      setError("Failed to delete record.");
     }
   }
 
@@ -620,7 +623,9 @@ export default function InvoiceDatabasePage() {
                     <td style={{ padding: "0.65rem 0.75rem", fontWeight: 500 }}>{inv.vendor}</td>
                     <td style={{ padding: "0.65rem 0.75rem", color: "var(--muted)", maxWidth: "200px" }}>{inv.description || "—"}</td>
                     <td style={{ padding: "0.65rem 0.75rem" }}>
-                      {inv.filename ? (
+                      {inv.source === "ride" ? (
+                        <span style={{ display: "inline-block", fontSize: "0.75rem", color: "#0e7c86", background: "#e0f2f4", borderRadius: "999px", padding: "0.1rem 0.55rem", fontWeight: 600 }}>Ride Plan</span>
+                      ) : inv.filename ? (
                         <a href={`/api/invoice-db/file/${inv.id}`} target="_blank" rel="noreferrer"
                           style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", fontSize: "0.82rem", color: "var(--primary)", textDecoration: "none", fontWeight: 500 }}
                           title={inv.filename}>
@@ -630,7 +635,7 @@ export default function InvoiceDatabasePage() {
                     </td>
                     <td style={{ padding: "0.65rem 0.75rem", textAlign: "right", fontWeight: 600, fontFamily: "Space Grotesk, sans-serif", whiteSpace: "nowrap" }}>{fmt(inv.amount)}</td>
                     <td style={{ padding: "0.65rem 0.75rem" }}>
-                      <button onClick={() => handleDelete(inv.id)} className="btn btn-secondary" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem", color: "#ef4444" }}>Delete</button>
+                      <button onClick={() => handleDelete(inv.id, inv.source)} className="btn btn-secondary" style={{ padding: "0.3rem 0.65rem", fontSize: "0.8rem", color: "#ef4444" }}>Delete</button>
                     </td>
                   </tr>
                 ))}

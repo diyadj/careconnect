@@ -1,14 +1,14 @@
 {
-  "parent_first_name": "",
-  "parent_last_name": "",
-  "parent_email": "",
-  "parent_phone": "",
-  "invoice_address": "",
+  "parent_first_name": "Anna",
+  "parent_last_name": "Müller",
+  "parent_email": "anna.mueller@bluewin.ch",
+  "parent_phone": "+41 79 542 18 33",
+  "invoice_address": "Anna Müller\nGallusstrasse 14\n9000 St. Gallen",
   "child_first_name": "Luca",
-  "child_last_name": "Muller",
-  "child_ahv_number": "756.0380.9h24802",
+  "child_last_name": "Müller",
+  "child_ahv_number": "756.0380.9824.80",
   "date_of_birth": "2015-07-22",
-  "notes": "",
-  "account_username": "Luca Muller",
+  "notes": "Luca receives fortnightly physiotherapy and monthly psychiatry sessions. TixiTaxi registered under case number SVA-2024-4471.",
+  "account_username": "anna.mueller",
   "account_password": "careconnect123"
 }

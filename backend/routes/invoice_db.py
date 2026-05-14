@@ -3,7 +3,6 @@ import json
 import uuid
 import re
 import shutil
-import asyncio
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -12,16 +11,16 @@ from datetime import datetime
 from .invoice import (
     create_run,
     wait_for_run_completion,
-    get_latest_assistant_message,
+    get_thread_messages,
     extract_text_from_message,
     upload_files_to_wxo,
-    WXO_INVOICE_AGENT_ID,
 )
 
 router = APIRouter()
 
 INVOICE_DB_FILE = os.path.join(os.path.dirname(__file__), "../data/invoice_db.json")
 UPLOADS_DIR = os.path.join(os.path.dirname(__file__), "../data/invoice_uploads")
+RIDES_FILE = os.path.join(os.path.dirname(__file__), "../data/rides.json")
 
 VALID_CATEGORIES = {"transport", "meal"}
 VALID_TRANSPORT_TYPES = {"tixitaxi", "public_transport", "private_car", "other", ""}
@@ -34,6 +33,13 @@ def read_db() -> dict:
     if not os.path.exists(INVOICE_DB_FILE):
         return {}
     with open(INVOICE_DB_FILE, "r") as f:
+        return json.load(f)
+
+
+def _read_rides() -> dict:
+    if not os.path.exists(RIDES_FILE):
+        return {}
+    with open(RIDES_FILE, "r") as f:
         return json.load(f)
 
 
@@ -58,16 +64,33 @@ class InvoiceUpdate(BaseModel):
 
 @router.get("")
 def list_invoices(year: Optional[int] = None, category: Optional[str] = None):
-    """Return all invoices for a year, optionally filtered by category."""
+    """Return all invoices and ride plan records for a year, optionally filtered by category."""
     target_year = str(year) if year else str(datetime.now().year)
     all_data = read_db()
-    invoices = list(all_data.get(target_year, {}).values())
+    records = [{"source": "invoice", **inv} for inv in all_data.get(target_year, {}).values()]
+
+    for ride in _read_rides().get(target_year, {}).values():
+        records.append({
+            "id": ride["id"],
+            "source": "ride",
+            "category": "transport",
+            "transport_type": ride.get("ride_type") or "",
+            "date": ride["date"],
+            "vendor": ride.get("destination") or "",
+            "amount": ride.get("cost_chf") or 0.0,
+            "description": ride.get("appointment_type") or "",
+            "filename": None,
+            "stored_name": None,
+            "year": ride.get("year") or int(target_year),
+            "created_at": ride.get("created_at") or "",
+            "updated_at": ride.get("updated_at") or "",
+        })
 
     if category and category in VALID_CATEGORIES:
-        invoices = [i for i in invoices if i.get("category") == category]
+        records = [r for r in records if r.get("category") == category]
 
-    invoices.sort(key=lambda i: i["date"], reverse=True)
-    return invoices
+    records.sort(key=lambda r: r["date"], reverse=True)
+    return records
 
 
 @router.post("/upload")
@@ -205,6 +228,7 @@ def _parse_form_row(text: str, appointment_reason: str, appointment_address: str
             pass
 
     # Path 2: WatsonX Flow Builder JSON output (invoice_details wrapper or flat object)
+    # Also handles new agent format: {"Date": "...", "Cost": "CHF X.XX", "Appointment Reason": "...", ...}
     flow_json_match = re.search(r'\{[\s\S]*?"invoice_details"[\s\S]*?\}(?=\s*\})', text)
     if not flow_json_match:
         flow_json_match = re.search(r'\{[\s\S]*?\}', text)
@@ -212,9 +236,9 @@ def _parse_form_row(text: str, appointment_reason: str, appointment_address: str
         try:
             outer = json.loads(flow_json_match.group())
             d = outer.get("invoice_details") if isinstance(outer.get("invoice_details"), dict) else outer
-            raw_date = str(d.get("date") or d.get("Date") or "")
-            raw_cost = d.get("cost") if d.get("cost") is not None else d.get("Cost")
-            if raw_date and raw_cost is not None:
+            raw_date = str(d.get("Date") or d.get("date") or "")
+            cost_raw = d.get("Cost") if d.get("Cost") is not None else d.get("cost")
+            if raw_date and cost_raw is not None:
                 swiss = re.match(r'(\d{1,2})[./](\d{1,2})[./](\d{4})', raw_date)
                 iso = re.match(r'(\d{4})-(\d{2})-(\d{2})', raw_date)
                 if swiss:
@@ -223,15 +247,17 @@ def _parse_form_row(text: str, appointment_reason: str, appointment_address: str
                     norm_date = raw_date[:10]
                 else:
                     norm_date = None
+                # Handle "CHF 6.30" string or plain numeric value
+                cost_str = str(cost_raw).upper().replace("CHF", "").strip().replace(",", ".")
                 try:
-                    cost = float(str(raw_cost).replace(",", "."))
+                    cost = float(cost_str)
                 except ValueError:
                     cost = None
                 if norm_date and cost is not None:
                     return {
                         "reisedatum": norm_date,
-                        "behandlungsgrund": d.get("appointment_reason") or appointment_reason,
-                        "behandlungsort": d.get("appointment_address") or d.get("appointment_location") or appointment_address,
+                        "behandlungsgrund": (d.get("Appointment Reason") or d.get("appointment_reason") or appointment_reason or "").strip(),
+                        "behandlungsort": (d.get("Appointment Address") or d.get("appointment_address") or d.get("appointment_location") or appointment_address or "").strip(),
                         "billetpreis_ov": cost,
                         "privatauto": None,
                         "taxi": None,
@@ -241,7 +267,8 @@ def _parse_form_row(text: str, appointment_reason: str, appointment_address: str
             pass
 
     # Path 3: WatsonX Flow "Display message" plain text, e.g.:
-    #   Date: 08.05.2026, Cost: CHF 6.30, Location from: St. Gallen, Location to: Jakobsbad
+    #   Date: 08.05.2026, Cost: CHF 6.30, Location from: St. Gallen, Location to: Jakobsbad,
+    #   Appointment Reason: Doctor Visit, Appointment Address: St Gallen Cantonal Hospital
     eng_date_match = re.search(r'Date:\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[./]\d{1,2}[./]\d{4})', text, re.IGNORECASE)
     eng_cost_match = re.search(r'Cost:\s*(?:CHF\s*)?([\d]+[.,][\d]+|[\d]+)', text, re.IGNORECASE)
     if eng_date_match and eng_cost_match:
@@ -256,11 +283,13 @@ def _parse_form_row(text: str, appointment_reason: str, appointment_address: str
             cost = float(eng_cost_match.group(1).replace(",", "."))
         except ValueError:
             cost = None
+        appt_reason_match = re.search(r'Appointment Reason:\s*([^,\n]+)', text, re.IGNORECASE)
+        appt_address_match = re.search(r'Appointment Address:\s*([^\n]+)', text, re.IGNORECASE)
         if norm_date and cost is not None:
             return {
                 "reisedatum": norm_date,
-                "behandlungsgrund": appointment_reason,
-                "behandlungsort": appointment_address,
+                "behandlungsgrund": appt_reason_match.group(1).strip() if appt_reason_match else appointment_reason,
+                "behandlungsort": appt_address_match.group(1).strip() if appt_address_match else appointment_address,
                 "billetpreis_ov": cost,
                 "privatauto": None,
                 "taxi": None,
@@ -312,17 +341,9 @@ async def agent_extract_invoice(
     appointment_address: str = Form(...),
     year: Optional[int] = Form(None),
 ):
-    """Send a receipt to the WatsonX invoice extraction agent, auto-confirm, and save the record."""
-    agent_id = (WXO_INVOICE_AGENT_ID or "").strip()
+    agent_id = (os.getenv("WXO_INVOICE_AGENT_ID") or "").strip()
     if not agent_id:
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "WXO_INVOICE_AGENT_ID is not set. "
-                "Run 'orchestrate agents list', copy the ID for invoice_extraction_agent, "
-                "and add it to backend/.env as WXO_INVOICE_AGENT_ID=<id>."
-            ),
-        )
+        raise HTTPException(status_code=500, detail="WXO_INVOICE_AGENT_ID is not set in backend/.env.")
 
     original_name = file.filename or "invoice"
     ext = os.path.splitext(original_name)[1].lower()
@@ -331,112 +352,52 @@ async def agent_extract_invoice(
 
     file_bytes = await file.read()
 
-    context_message = (
-        f"Here is my Swiss transport receipt. "
-        f"The appointment reason is: {appointment_reason}. "
-        f"The appointment address is: {appointment_address}. "
-        f"Please extract the receipt details (date, cost, transport type) and return them."
-    )
-
-    # Upload file to WatsonX S3 so the Document Extractor node receives a URL.
-    # Fall back to inline base64 only if the upload endpoint is unavailable.
-    uploaded_file_urls = None
-    image_bytes = None
-    image_mime = "image/jpeg"
-    try:
-        uploaded_file_urls = await upload_files_to_wxo(
-            [{"filename": original_name, "content": file_bytes}],
-            text=context_message,
-        )
-    except HTTPException:
-        # Upload endpoint unavailable — send image inline for vision models
-        if ext in (".jpg", ".jpeg", ".png"):
-            try:
-                from PIL import Image
-                import io as _io
-                img = Image.open(_io.BytesIO(file_bytes))
-                img.thumbnail((1024, 1536), Image.LANCZOS)
-                if img.mode in ("RGBA", "LA", "P"):
-                    img = img.convert("RGB")
-                buf = _io.BytesIO()
-                img.save(buf, format="JPEG", quality=75, optimize=True)
-                image_bytes = buf.getvalue()
-            except ImportError:
-                image_bytes = file_bytes
-                image_mime = "image/jpeg" if ext in (".jpg", ".jpeg") else "image/png"
-
-    # Turn 1: create run — with file URL if upload succeeded, else inline image
-    run1 = await create_run(
-        context_message,
-        agent_id=agent_id,
-        file_urls=uploaded_file_urls,
-        image_bytes=image_bytes if not uploaded_file_urls else None,
-        image_mime=image_mime,
-    )
+    # Turn 1: text trigger only — agent will ask for the file next
+    run1 = await create_run("I want to submit my transport receipts", agent_id=agent_id)
     thread_id = run1.get("thread_id")
     if not thread_id:
-        raise HTTPException(status_code=500, detail="Failed to start extraction session.")
+        raise HTTPException(status_code=500, detail="Failed to start invoice session.")
     if run1.get("run_id"):
         await wait_for_run_completion(run1["run_id"])
 
-    msg1 = await get_latest_assistant_message(thread_id)
-    text1 = extract_text_from_message(msg1) if msg1 else ""
+    # Upload the file to WXO S3 (surfaces the real error if it fails)
+    file_urls = await upload_files_to_wxo([{"filename": original_name, "content": file_bytes}])
 
-    # If the flow is asking for a file upload it means the S3 upload never reached the flow.
-    if "please upload" in text1.lower() or "upload the file" in text1.lower():
-        raise HTTPException(
-            status_code=422,
-            detail=(
-                "The flow did not receive the uploaded file. "
-                "Check that WXO_INSTANCE_ID and WXO_API_KEY are correct in backend/.env."
-            ),
-        )
+    # Turn 2: send the file (source="USER" so the flow recognises it as the upload)
+    run2 = await create_run("", thread_id=thread_id, agent_id=agent_id, file_urls=file_urls, context_source="USER")
+    if run2.get("run_id"):
+        await wait_for_run_completion(run2["run_id"])
 
-    # If agent still asks for the two fields, supply them explicitly
-    still_asking = (
-        any(kw in text1.lower() for kw in ["appointment reason", "appointment address", "reason for", "care provider"])
-        and "does this look correct" not in text1.lower()
-        and "Total:" not in text1
-        and "Cost:" not in text1
-    )
-    if still_asking:
-        run2 = await create_run(
-            f"Appointment reason: {appointment_reason}\nAppointment address: {appointment_address}",
-            thread_id=thread_id,
-            agent_id=agent_id,
-        )
-        if run2.get("run_id"):
-            await wait_for_run_completion(run2["run_id"])
-        msg2 = await get_latest_assistant_message(thread_id)
-        text1 = extract_text_from_message(msg2) if msg2 else text1
+    # Turn 3: agent asks "Enter Appointment Reason" — answer with the provided value
+    run3 = await create_run(appointment_reason, thread_id=thread_id, agent_id=agent_id)
+    if run3.get("run_id"):
+        await wait_for_run_completion(run3["run_id"])
 
-    # If agent shows the formatted row and asks for confirmation, auto-confirm
-    if "does this look correct" in text1.lower() or "look correct" in text1.lower():
-        run_c = await create_run(
-            "Yes, it looks correct. Please save it.",
-            thread_id=thread_id,
-            agent_id=agent_id,
-        )
-        if run_c.get("run_id"):
-            await wait_for_run_completion(run_c["run_id"])
-        msg_c = await get_latest_assistant_message(thread_id)
-        final_text = extract_text_from_message(msg_c) if msg_c else text1
-    else:
-        final_text = text1
+    # Turn 4: agent asks "Enter Appointment Address" — answer with the provided value
+    run4 = await create_run(appointment_address, thread_id=thread_id, agent_id=agent_id)
+    if run4.get("run_id"):
+        await wait_for_run_completion(run4["run_id"])
 
-    form_row = _parse_form_row(final_text, appointment_reason, appointment_address) \
-        or _parse_form_row(text1, appointment_reason, appointment_address)
+    # Iterate messages newest-to-oldest; use first one that parses successfully.
+    all_messages = await get_thread_messages(thread_id)
+    form_row = None
+    last_agent_text = ""
+    for msg in reversed(all_messages):
+        if msg.get("role") != "assistant":
+            continue
+        text = extract_text_from_message(msg)
+        if not last_agent_text:
+            last_agent_text = text
+        form_row = _parse_form_row(text, appointment_reason, appointment_address)
+        if form_row:
+            break
 
     if not form_row:
         raise HTTPException(
             status_code=422,
-            detail=(
-                "The agent could not extract a valid date or amount from this receipt. "
-                f"Agent response: {(final_text or text1)[:400]}"
-            ),
+            detail=f"Agent could not extract receipt data. Last response: {last_agent_text[:400]}",
         )
 
-    # Determine transport type and amount from the FormRow columns
     if form_row.get("billetpreis_ov"):
         transport_type = "public_transport"
         amount = form_row["billetpreis_ov"]
@@ -450,7 +411,6 @@ async def agent_extract_invoice(
         transport_type = "other"
         amount = form_row.get("total", 0.0)
 
-    # Normalise date to YYYY-MM-DD
     raw_date = form_row.get("reisedatum", "")
     swiss = re.match(r'(\d{1,2})\.(\d{1,2})\.(\d{4})', raw_date)
     iso = re.match(r'(\d{4})-(\d{2})-(\d{2})', raw_date)
@@ -461,7 +421,6 @@ async def agent_extract_invoice(
     else:
         date_str = datetime.now().strftime("%Y-%m-%d")
 
-    # Save file to disk
     os.makedirs(UPLOADS_DIR, exist_ok=True)
     inv_id = str(uuid.uuid4())
     stored_name = f"{inv_id}{ext}"

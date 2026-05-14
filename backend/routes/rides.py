@@ -4,8 +4,8 @@ import uuid
 import asyncio
 import httpx
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel, ConfigDict, Field
+from typing import Annotated, Optional
 from datetime import datetime
 
 from .invoice import (
@@ -73,9 +73,10 @@ class RideUpdate(BaseModel):
 
 
 class CancelRideRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
     date: str
-    from_location: str = Field(alias="from")
-    to_location: str = Field(alias="to")
+    from_location: Annotated[str, Field(alias="from")]
+    to_location: Annotated[str, Field(alias="to")]
     purpose: Optional[str] = ""
 
 
@@ -194,7 +195,7 @@ async def send_tixi_email(year: Optional[int] = None):
         "capture_logs": False,
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(verify=False) as client:
         try:
             response = await client.post(get_runs_endpoint(), json=payload, headers=headers)
         except httpx.RequestError as exc:
@@ -213,19 +214,19 @@ async def send_tixi_email(year: Optional[int] = None):
 @router.post("/cancel-ride")
 async def cancel_ride(request: CancelRideRequest):
     """Initiate a phone call to TixiTaxi to cancel a ride."""
-    missing = [
-        name
-        for name, val in [
-            ("TWILIO_ACCOUNT_SID", TWILIO_ACCOUNT_SID),
-            ("TWILIO_AUTH_TOKEN", TWILIO_AUTH_TOKEN),
-            ("TWILIO_FROM_NUMBER", TWILIO_FROM_NUMBER),
-        ]
-        if not val
-    ]
+    sid = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+    from_number = os.getenv("TWILIO_FROM_NUMBER", "").strip()
+
+    missing = [name for name, val in [
+        ("TWILIO_ACCOUNT_SID", sid),
+        ("TWILIO_AUTH_TOKEN", auth_token),
+        ("TWILIO_FROM_NUMBER", from_number),
+    ] if not val]
     if missing:
         raise HTTPException(
             status_code=503,
-            detail=f"Cancellation calling is not configured. Add to backend/.env: {', '.join(missing)}",
+            detail=f"Twilio not configured. Add to backend/.env: {', '.join(missing)}",
         )
 
     twiml_message = (
@@ -236,21 +237,21 @@ async def cancel_ride(request: CancelRideRequest):
         f"Purpose: {request.purpose or 'not specified'}. "
         "Please confirm this cancellation. Thank you."
     )
-    twiml = f"<Response><Say voice=\"alice\">{twiml_message}</Say></Response>"
+    twiml = f'<Response><Say voice="alice">{twiml_message}</Say></Response>'
 
-    twilio_url = f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_ACCOUNT_SID}/Calls.json"
+    twilio_url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Calls.json"
     payload = {
         "To": TIXI_CANCELLATION_NUMBER,
-        "From": TWILIO_FROM_NUMBER,
+        "From": from_number,
         "Twiml": twiml,
     }
 
-    async with httpx.AsyncClient(timeout=20) as client:
+    async with httpx.AsyncClient(timeout=20, verify=False) as client:
         try:
             response = await client.post(
                 twilio_url,
                 data=payload,
-                auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN),
+                auth=(sid, auth_token),
             )
         except httpx.RequestError as exc:
             raise HTTPException(status_code=502, detail=f"Failed to reach Twilio: {exc}") from exc
@@ -263,7 +264,37 @@ async def cancel_ride(request: CancelRideRequest):
         "status": "call_initiated",
         "call_sid": data.get("sid"),
         "to": TIXI_CANCELLATION_NUMBER,
-        "from": TWILIO_FROM_NUMBER,
+        "from": from_number,
+    }
+
+
+@router.get("/check-twilio")
+async def check_twilio():
+    """Return which numbers Twilio considers verified for the configured account credentials."""
+    sid = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+    if not sid or not auth_token:
+        raise HTTPException(status_code=503, detail="TWILIO_ACCOUNT_SID or TWILIO_AUTH_TOKEN not set.")
+
+    url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/OutgoingCallerIds.json"
+    async with httpx.AsyncClient(timeout=10, verify=False) as client:
+        try:
+            response = await client.get(url, auth=(sid, auth_token))
+        except httpx.RequestError as exc:
+            raise HTTPException(status_code=502, detail=f"Failed to reach Twilio: {exc}") from exc
+
+    if response.status_code == 401:
+        raise HTTPException(status_code=401, detail="Twilio credentials are invalid (401 Unauthorized).")
+    if response.status_code != 200:
+        raise HTTPException(status_code=500, detail=f"Twilio error: {response.text}")
+
+    data = response.json()
+    verified = [entry.get("phone_number") for entry in data.get("outgoing_caller_ids", [])]
+    return {
+        "account_sid_used": sid,
+        "verified_numbers": verified,
+        "target_number": TIXI_CANCELLATION_NUMBER,
+        "target_is_verified": TIXI_CANCELLATION_NUMBER in verified,
     }
 
 

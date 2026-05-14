@@ -267,99 +267,6 @@ def extract_text_from_message(msg: dict) -> str:
     return text.strip()
 
 
-def is_flow_start_message(text: str) -> bool:
-    lowered = (text or "").lower()
-    hints = [
-        "a new flow has started",
-        "chat session is currently dedicated to the flow",
-        "will resume once the flow is complete",
-        "flow has started",
-    ]
-    return any(hint in lowered for hint in hints)
-
-
-def normalize_assistant_text_for_dedupe(text: str) -> str:
-    return " ".join((text or "").lower().split())
-
-
-def is_probable_duplicate_assistant_prompt(previous_text: str, current_text: str) -> bool:
-    prev = normalize_assistant_text_for_dedupe(previous_text)
-    curr = normalize_assistant_text_for_dedupe(current_text)
-    if not prev or not curr:
-        return False
-
-    if prev == curr:
-        return True
-
-    # Some Orchestrate responses emit truncated or near-identical retries.
-    shorter, longer = (prev, curr) if len(prev) <= len(curr) else (curr, prev)
-    if len(shorter) >= 16 and longer.startswith(shorter):
-        return True
-    if len(longer) >= 16 and shorter in longer and abs(len(longer) - len(shorter)) <= 8:
-        return True
-
-    return False
-
-
-def summarize_thread_messages(messages: List[dict]) -> List[dict]:
-    summary = []
-    for msg in messages:
-        role = msg.get("role", "assistant") if isinstance(msg, dict) else "assistant"
-        text = extract_text_from_message(msg)
-        if not text:
-            continue
-
-        if role == "assistant" and summary:
-            previous = summary[-1]
-            if previous.get("role") == "assistant" and is_probable_duplicate_assistant_prompt(
-                previous.get("text", ""), text
-            ):
-                continue
-
-        summary.append({"role": role, "text": text})
-    return summary
-
-
-def pick_latest_meaningful_prompt(messages: List[dict]) -> Optional[dict]:
-    fallback_text = None
-    for msg in reversed(messages):
-        if not isinstance(msg, dict) or msg.get("role") != "assistant":
-            continue
-        text = extract_text_from_message(msg)
-        if not text:
-            continue
-        if not is_flow_start_message(text):
-            lowered = text.lower()
-            requires_input = any(
-                keyword in lowered
-                for keyword in [
-                    "approve",
-                    "decline",
-                    "upload",
-                    "confirm",
-                    "confirmation",
-                    "reply with",
-                    "would you like",
-                    "do you want",
-                ]
-            )
-            return {
-                "message": text,
-                "type": "user_approval" if requires_input else "assistant_message",
-                "requires_input": requires_input,
-            }
-        if fallback_text is None:
-            fallback_text = text
-
-    if fallback_text:
-        return {
-            "message": fallback_text,
-            "type": "assistant_message",
-            "requires_input": False,
-        }
-    return None
-
-
 def determine_flow_status(user_prompt: Optional[dict], approved: Optional[bool] = None) -> str:
     if approved is False:
         return "cancelled"
@@ -431,7 +338,7 @@ async def upload_files_to_wxo(files_for_upload: List[dict], text: str = "") -> L
     headers.pop("Content-Type", None)
 
     last_error: Optional[str] = None
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(verify=False) as client:
         for url in get_upload_endpoint_candidates():
             try:
                 response = await client.post(url, data=data, files=multipart_files, headers=headers)
@@ -470,31 +377,16 @@ async def create_run(
     thread_id: Optional[str] = None,
     file_urls: Optional[List[dict]] = None,
     agent_id: Optional[str] = None,
-    image_bytes: Optional[bytes] = None,
-    image_mime: str = "image/jpeg",
+    context_source: str = "TOOL",
 ) -> dict:
     """Create an Orchestrate run and return run metadata."""
     ensure_wxo_config()
     url = get_runs_endpoint()
 
-    # Build message content — WatsonX Orchestrate uses "response_type" (not OpenAI "type")
-    if image_bytes:
-        content = [
-            {"response_type": "text", "text": message},
-            {
-                "response_type": "image_url",
-                "image_url": {
-                    "url": f"data:{image_mime};base64,{base64.b64encode(image_bytes).decode()}"
-                },
-            },
-        ]
-    else:
-        content = message
-
     payload = {
         "message": {
             "role": "user",
-            "content": content,
+            "content": message,
         },
         "agent_id": agent_id or WXO_INVOICE_AGENT_ID or WXO_AGENT_ID,
         "capture_logs": False,
@@ -519,14 +411,14 @@ async def create_run(
         )
         payload["context"] = {
             "data": context_data,
-            "source": "TOOL",
+            "source": context_source,
         }
         payload["additional_properties"] = {}
 
     if thread_id:
         payload["thread_id"] = thread_id
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(verify=False) as client:
         try:
             response = await client.post(url, json=payload, headers=await get_auth_headers())
         except httpx.RequestError as exc:
@@ -546,7 +438,7 @@ async def get_run_status(run_id: str) -> dict:
     """Fetch Orchestrate run status by run ID."""
     ensure_wxo_config()
     url = f"{get_runs_endpoint()}/{run_id}"
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(verify=False) as client:
         try:
             response = await client.get(url, headers=await get_auth_headers())
         except httpx.RequestError as exc:
@@ -579,7 +471,7 @@ async def get_latest_assistant_message(thread_id: str) -> Optional[dict]:
     """Fetch the latest assistant message from a thread."""
     ensure_wxo_config()
     url = get_threads_endpoint(thread_id)
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(verify=False) as client:
         try:
             response = await client.get(url, headers=await get_auth_headers())
         except httpx.RequestError as exc:
@@ -604,7 +496,7 @@ async def get_latest_assistant_message(thread_id: str) -> Optional[dict]:
 async def get_thread_messages(thread_id: str) -> List[dict]:
     ensure_wxo_config()
     url = get_threads_endpoint(thread_id)
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(verify=False) as client:
         try:
             response = await client.get(url, headers=await get_auth_headers())
         except httpx.RequestError as exc:
