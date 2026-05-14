@@ -452,6 +452,185 @@ async def agent_extract_invoice(
     return record
 
 
+def _parse_meal_response(text: str) -> Optional[dict]:
+    """Extract date, vendor, amount from meal agent response."""
+    if not text:
+        return None
+
+    json_match = re.search(r'\{[\s\S]*?\}', text)
+    if json_match:
+        try:
+            d = json.loads(json_match.group())
+            raw_date = str(d.get("Date") or d.get("date") or "")
+            cost_raw = next((d.get(k) for k in ("Cost", "cost", "Amount", "amount", "totalamt", "Totalamt") if d.get(k) is not None), None)
+            vendor = (d.get("Vendor") or d.get("vendor") or d.get("Restaurant") or d.get("restaurant") or d.get("recipientName") or d.get("RecipientName") or "").strip()
+            if raw_date and cost_raw is not None:
+                from datetime import datetime as _dt
+                swiss = re.match(r'(\d{1,2})[./](\d{1,2})[./](\d{4})', raw_date)
+                iso = re.match(r'(\d{4})-(\d{2})-(\d{2})', raw_date)
+                month_name = None
+                for fmt in ("%d %B %Y", "%d %b %Y"):
+                    try:
+                        month_name = _dt.strptime(raw_date, fmt).strftime("%Y-%m-%d")
+                        break
+                    except ValueError:
+                        pass
+                if swiss:
+                    norm_date = f"{swiss.group(3)}-{swiss.group(2).zfill(2)}-{swiss.group(1).zfill(2)}"
+                elif iso:
+                    norm_date = raw_date[:10]
+                elif month_name:
+                    norm_date = month_name
+                else:
+                    norm_date = None
+                cost_str = str(cost_raw).upper().replace("CHF", "").strip().replace(",", ".")
+                try:
+                    cost = float(cost_str)
+                except ValueError:
+                    cost = None
+                if norm_date and cost is not None:
+                    return {"date": norm_date, "vendor": vendor, "amount": cost}
+        except (json.JSONDecodeError, ValueError):
+            pass
+
+    date_match = re.search(
+        r'Date:\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[./]\d{1,2}[./]\d{4}|\d{1,2}\s+\w+\s+\d{4})',
+        text, re.IGNORECASE,
+    )
+    cost_match = re.search(r'(?:Cost|Amount|Total|totalamt):\s*(?:CHF\s*)?([\d]+[.,][\d]+|[\d]+)', text, re.IGNORECASE)
+    vendor_match = re.search(r'(?:Vendor|Restaurant|Shop|recipientName):\s*([^\n,]+)', text, re.IGNORECASE)
+    if date_match and cost_match:
+        raw = date_match.group(1).strip()
+        swiss = re.match(r'(\d{1,2})[./](\d{1,2})[./](\d{4})', raw)
+        iso = re.match(r'(\d{4})-(\d{2})-(\d{2})', raw)
+        # Handle "14 May 2026" / "14 May 2026" month-name formats
+        from datetime import datetime as _dt
+        month_name = None
+        for fmt in ("%d %B %Y", "%d %b %Y"):
+            try:
+                month_name = _dt.strptime(raw, fmt).strftime("%Y-%m-%d")
+                break
+            except ValueError:
+                pass
+        norm_date = (
+            f"{swiss.group(3)}-{swiss.group(2).zfill(2)}-{swiss.group(1).zfill(2)}" if swiss
+            else raw[:10] if iso else month_name
+        )
+        try:
+            cost = float(cost_match.group(1).replace(",", "."))
+        except ValueError:
+            cost = None
+        if norm_date and cost is not None:
+            return {
+                "date": norm_date,
+                "vendor": vendor_match.group(1).strip() if vendor_match else "",
+                "amount": cost,
+            }
+    return None
+
+
+def _find_matching_appointment(meal_date: str) -> Optional[dict]:
+    """Find the nearest transport invoice or ride within ±1 day of meal_date."""
+    from datetime import date as dt_date, timedelta
+    try:
+        meal_dt = dt_date.fromisoformat(meal_date)
+    except ValueError:
+        return None
+    window = {(meal_dt + timedelta(days=d)).isoformat() for d in (-1, 0, 1)}
+    year_key = str(meal_dt.year)
+
+    for inv in read_db().get(year_key, {}).values():
+        if inv.get("category") == "transport" and inv.get("date") in window:
+            return {"date": inv["date"], "description": inv.get("description") or "", "vendor": inv.get("vendor") or ""}
+
+    for ride in _read_rides().get(year_key, {}).values():
+        if ride.get("date") in window:
+            return {"date": ride["date"], "description": ride.get("appointment_type") or "", "vendor": ride.get("destination") or ""}
+
+    return None
+
+
+@router.post("/meal-extract")
+async def meal_extract_invoice(
+    file: UploadFile = File(...),
+    year: Optional[int] = Form(None),
+):
+    agent_id = (os.getenv("WXO_MEAL_AGENT_ID") or "").strip()
+    if not agent_id:
+        raise HTTPException(status_code=500, detail="WXO_MEAL_AGENT_ID is not set in backend/.env.")
+
+    original_name = file.filename or "meal_receipt"
+    ext = os.path.splitext(original_name)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=422, detail=f"File type '{ext}' not allowed. Use PDF, JPG, or PNG.")
+
+    file_bytes = await file.read()
+
+    run1 = await create_run("I want to submit a meal receipt", agent_id=agent_id)
+    thread_id = run1.get("thread_id")
+    if not thread_id:
+        raise HTTPException(status_code=500, detail="Failed to start meal extraction session.")
+    if run1.get("run_id"):
+        await wait_for_run_completion(run1["run_id"])
+
+    file_urls = await upload_files_to_wxo([{"filename": original_name, "content": file_bytes}])
+    run2 = await create_run("", thread_id=thread_id, agent_id=agent_id, file_urls=file_urls, context_source="USER")
+    if run2.get("run_id"):
+        await wait_for_run_completion(run2["run_id"])
+
+    all_messages = await get_thread_messages(thread_id)
+    meal_data = None
+    last_agent_text = ""
+    for msg in reversed(all_messages):
+        if msg.get("role") != "assistant":
+            continue
+        text = extract_text_from_message(msg)
+        if not last_agent_text:
+            last_agent_text = text
+        meal_data = _parse_meal_response(text)
+        if meal_data:
+            break
+
+    if not meal_data:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Agent could not extract meal data. Last response: {last_agent_text[:400]}",
+        )
+
+    match_info = _find_matching_appointment(meal_data["date"])
+    description = f"Meal · {match_info['description']}" if match_info else "Meal"
+
+    os.makedirs(UPLOADS_DIR, exist_ok=True)
+    inv_id = str(uuid.uuid4())
+    stored_name = f"{inv_id}{ext}"
+    with open(os.path.join(UPLOADS_DIR, stored_name), "wb") as f:
+        f.write(file_bytes)
+
+    year_key = str(year) if year else str(datetime.now().year)
+    now = datetime.now().isoformat()
+    record = {
+        "id": inv_id,
+        "category": "meal",
+        "transport_type": "",
+        "date": meal_data["date"],
+        "vendor": meal_data["vendor"],
+        "amount": round(meal_data["amount"], 2),
+        "description": description,
+        "filename": original_name,
+        "stored_name": stored_name,
+        "year": int(year_key),
+        "created_at": now,
+        "updated_at": now,
+    }
+
+    all_data = read_db()
+    if year_key not in all_data:
+        all_data[year_key] = {}
+    all_data[year_key][inv_id] = record
+    write_db(all_data)
+    return {"record": record, "match_info": match_info}
+
+
 @router.delete("/{inv_id}")
 def delete_invoice(inv_id: str):
     all_data = read_db()

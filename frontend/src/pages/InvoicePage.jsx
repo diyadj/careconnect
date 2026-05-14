@@ -1,156 +1,60 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import api from "../api/client";
 
-function htmlToReadableText(html) {
-  if (!html) return "";
-
-  // Preserve common structural breaks before extracting text.
-  const withBreaks = html
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|tr|li|h1|h2|h3|h4|h5|h6|table|thead|tbody|section|article)>/gi, "\n")
-    .replace(/<\/(td|th)>/gi, "\t");
-
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(withBreaks, "text/html");
-  return (doc.body?.textContent || "")
-    .replace(/\u00a0/g, " ")
-    .replace(/\r/g, "")
+function cleanMessage(text) {
+  if (!text) return "";
+  return text
+    .replace(/\*\*/g, "")
     .replace(/\n{3,}/g, "\n\n")
-    .replace(/\t+/g, " ")
     .trim();
 }
 
-function cleanAgentMessage(message) {
-  if (!message) return "";
-  let cleaned = message
-    .replace(/\*\*/g, "")
-    .replace(/\|\s*\|/g, "\n")
-    .replace(/\n{3,}/g, "\n\n");
-
-  // Render fenced HTML snippets as plain readable text.
-  cleaned = cleaned.replace(/```html\s*([\s\S]*?)```/gi, (_, htmlBlock) => {
-    const parsed = htmlToReadableText(htmlBlock);
-    return parsed || htmlBlock;
-  });
-
-  // If message still contains raw HTML tags, convert the full body to text.
-  if (/<\/?[a-z][\s\S]*>/i.test(cleaned)) {
-    cleaned = htmlToReadableText(cleaned);
-  }
-
-  return cleaned.replace(/\n{3,}/g, "\n\n").trim();
-}
-
-export default function InvoicePage() {
+export default function HelpPage() {
+  const [sessionId, setSessionId] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sessionKey, setSessionKey] = useState(null);
-  const [wxoSessionId, setWxoSessionId] = useState(null);
-  const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [messageInput, setMessageInput] = useState("");
-  const [selectedFiles, setSelectedFiles] = useState([]);
-  const [threadMessages, setThreadMessages] = useState([]);
-
-  const [stage, setStage] = useState("ready"); // "ready" | "review" | "complete"
-
-  const statusLabel =
-    stage === "ready"
-      ? "Ready"
-      : stage === "complete"
-      ? "Completed"
-      : stage === "cancelled"
-      ? "Cancelled"
-      : "Pending Approval";
-
-  async function refreshThreadMessages(sessionId) {
-    if (!sessionId) return;
-    try {
-      const res = await api.get(`/invoice/messages/${sessionId}`);
-      if (Array.isArray(res.data.messages)) {
-        setThreadMessages(res.data.messages);
-      }
-      if (res.data.user_prompt) {
-        setResult((prev) => ({ ...(prev || {}), user_prompt: res.data.user_prompt }));
-      }
-      if (res.data.status === "submitted") {
-        setStage("complete");
-      }
-    } catch {
-      // Silent refresh failure; manual actions still surface actionable errors.
-    }
-  }
+  const [started, setStarted] = useState(false);
+  const streamRef = useRef(null);
 
   useEffect(() => {
-    if (!wxoSessionId || stage !== "review") return;
+    if (streamRef.current) {
+      streamRef.current.scrollTop = streamRef.current.scrollHeight;
+    }
+  }, [messages, loading]);
 
-    refreshThreadMessages(wxoSessionId);
-    const intervalId = setInterval(() => refreshThreadMessages(wxoSessionId), 4000);
-
-    return () => clearInterval(intervalId);
-  }, [wxoSessionId, stage]);
-
-  async function handleStartAgent() {
+  async function handleStart() {
     setLoading(true);
     setError(null);
-
     try {
-      const res = await api.post("/invoice/start", sessionKey ? { session_key: sessionKey } : {});
-      setSessionKey(res.data.session_key || sessionKey);
-      setWxoSessionId(res.data.wxo_session_id);
-      setResult(res.data);
-      await refreshThreadMessages(res.data.wxo_session_id);
-      if (res.data.status === "pending_approval") {
-        setStage("review");
-      } else if (res.data.status === "submitted") {
-        setStage("complete");
-      } else {
-        setStage("review");
+      const res = await api.post("/help/start");
+      setSessionId(res.data.session_id);
+      if (res.data.message) {
+        setMessages([{ role: "assistant", text: res.data.message }]);
       }
+      setStarted(true);
     } catch (err) {
-      setError(err.response?.data?.detail || "Failed to start agent.");
+      setError(err.response?.data?.detail || "Failed to connect to help agent.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleSendMessage(overrideMessage = null) {
-    if (!wxoSessionId) {
-      setError("No active agent session found. Start the agent first.");
-      return;
-    }
-
-    const messageToSend = (overrideMessage ?? messageInput).trim();
-    if (!messageToSend && selectedFiles.length === 0) {
-      setError("Type a message or attach files before sending.");
-      return;
-    }
-
+  async function handleSend() {
+    const text = input.trim();
+    if (!text || !sessionId || loading) return;
+    setInput("");
+    setMessages((prev) => [...prev, { role: "user", text }]);
     setLoading(true);
     setError(null);
-
     try {
       const form = new FormData();
-      form.append("session_id", wxoSessionId);
-      form.append("message", messageToSend);
-      selectedFiles.forEach((file) => {
-        form.append("files", file);
-      });
-
-      const res = await api.post("/invoice/message", form, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      setResult(res.data);
-      setMessageInput("");
-      setSelectedFiles([]);
-      await refreshThreadMessages(wxoSessionId);
-
-      if (res.data.status === "submitted") {
-        setStage("complete");
-      } else if (res.data.status === "cancelled") {
-        setStage("cancelled");
-      } else {
-        setStage("review");
+      form.append("session_id", sessionId);
+      form.append("message", text);
+      const res = await api.post("/help/message", form);
+      if (res.data.message) {
+        setMessages((prev) => [...prev, { role: "assistant", text: res.data.message }]);
       }
     } catch (err) {
       setError(err.response?.data?.detail || "Failed to send message.");
@@ -159,160 +63,102 @@ export default function InvoicePage() {
     }
   }
 
-  function handleFileSelection(event) {
-    const incoming = Array.from(event.target.files || []);
-    if (incoming.length === 0) return;
-
-    setSelectedFiles((prev) => {
-      const map = new Map(prev.map((file) => [`${file.name}-${file.size}`, file]));
-      incoming.forEach((file) => {
-        map.set(`${file.name}-${file.size}`, file);
-      });
-      return Array.from(map.values());
-    });
-
-    // Allow selecting the same file again later if needed.
-    event.target.value = "";
-  }
-
-  function removeSelectedFile(fileToRemove) {
-    setSelectedFiles((prev) => prev.filter((file) => file !== fileToRemove));
-  }
-
   function handleReset() {
-    setSessionKey(null);
-    setWxoSessionId(null);
-    setResult(null);
-    setThreadMessages([]);
+    setSessionId(null);
+    setMessages([]);
+    setInput("");
     setError(null);
-    setMessageInput("");
-    setSelectedFiles([]);
-    setStage("ready");
+    setStarted(false);
+    setLoading(false);
   }
 
   return (
     <div className="page">
       <div className="page-header">
-        <h1 className="page-title">Invoice Matching</h1>
+        <h1 className="page-title">Help & Guidance</h1>
         <p className="page-subtitle">
-          Start the invoice workflow with the agent. It will guide you through
-          each step and request confirmations before submission.
+          Ask about SVA transport reimbursement, Form 5050 requirements, TixiTaxi eligibility,
+          or anything CareConnect can help you manage.
         </p>
-        <div className="note-banner" style={{ marginTop: "0.75rem" }}>
-          Demo note: upload invoices manually in this chat for now. In a future version, an email-scanning
-          agent will run in the background and auto-upload invoice attachments.
-        </div>
       </div>
 
       <div className="chat-shell">
-        <div className="chat-status-row">
-          <span className="badge">{statusLabel}</span>
-        </div>
-
-        <div className="chat-stream">
-          {stage === "ready" && (
+        <div className="chat-stream" ref={streamRef}>
+          {!started && (
             <div className="bubble bubble-system">
               <strong>System</strong>
-              <div>Click Start Agent to begin the invoice workflow.</div>
+              <div>
+                Click <strong>Start Chat</strong> to connect to the help agent. You can ask questions like:
+                <ul style={{ marginTop: "0.5rem", paddingLeft: "1.25rem", lineHeight: 1.8 }}>
+                  <li>Which transport costs qualify for SVA reimbursement?</li>
+                  <li>How do I submit Form 5050 to SVA St.Gallen?</li>
+                  <li>Does physiotherapy count as an eligible appointment?</li>
+                  <li>How does TixiTaxi registration work?</li>
+                </ul>
+              </div>
             </div>
           )}
 
-          {threadMessages.map((msg, index) => (
-            <div
-              key={`${msg.role}-${index}`}
-              className={`bubble ${msg.role === "user" ? "bubble-user" : "bubble-agent"}`}
-            >
-              <strong>{msg.role === "user" ? "You" : "Agent"}</strong>
-              <div>{cleanAgentMessage(msg.text)}</div>
+          {messages.map((msg, i) => (
+            <div key={i} className={`bubble ${msg.role === "user" ? "bubble-user" : "bubble-agent"}`}>
+              <strong>{msg.role === "user" ? "You" : "CareConnect Help"}</strong>
+              <div style={{ whiteSpace: "pre-wrap" }}>{cleanMessage(msg.text)}</div>
             </div>
           ))}
 
-          {result?.user_prompt?.message && threadMessages.length === 0 && stage !== "ready" && (
+          {loading && (
             <div className="bubble bubble-agent">
-              <strong>Agent</strong>
-              <div>{cleanAgentMessage(result.user_prompt.message)}</div>
-            </div>
-          )}
-
-          {stage === "complete" && (
-            <div className="bubble bubble-system">
-              <strong>System</strong>
-              <div>Invoices successfully submitted to the IV. You are all done for this month.</div>
-            </div>
-          )}
-
-          {stage === "cancelled" && (
-            <div className="bubble bubble-system">
-              <strong>System</strong>
-              <div>Submission cancelled. You can restart when ready.</div>
+              <strong>CareConnect Help</strong>
+              <div style={{ color: "var(--muted)", fontStyle: "italic" }}>Thinking…</div>
             </div>
           )}
         </div>
 
         {error && (
-          <div className="note-banner" style={{ borderColor: "#f28b82", color: "#7c2b2b", background: "#fff1f1" }}>
+          <div className="note-banner" style={{ borderColor: "#f28b82", color: "#7c2b2b", background: "#fff1f1", margin: "0.5rem 0" }}>
             {error}
           </div>
         )}
 
         <div className="chat-composer">
-          <div className="section" style={{ marginBottom: "0.9rem" }}>
-            <label className="form-label">Your message</label>
-            <textarea
-              className="form-input"
-              rows={3}
-              value={messageInput}
-              onChange={(e) => setMessageInput(e.target.value)}
-              placeholder="Type instructions, approval text, or additional details..."
-              disabled={loading || stage === "ready" || stage === "complete" || stage === "cancelled"}
-            />
-          </div>
-
-          <div className="section" style={{ marginBottom: "0.9rem" }}>
-            <label className="form-label">Attach files (optional)</label>
-            <input
-              type="file"
-              className="form-input"
-              multiple
-              onChange={handleFileSelection}
-              disabled={loading || stage === "ready" || stage === "complete" || stage === "cancelled"}
-            />
-            {selectedFiles.length > 0 && (
-              <div className="chip-row" style={{ marginTop: "0.6rem" }}>
-                {selectedFiles.map((file) => (
-                  <span key={`${file.name}-${file.size}`} className="tag">
-                    {file.name}
-                    <span className="tag-action" onClick={() => removeSelectedFile(file)}>x</span>
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+          {started && (
+            <div className="section" style={{ marginBottom: "0.75rem" }}>
+              <textarea
+                className="form-input"
+                rows={3}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask about SVA requirements, eligible costs, form submission…"
+                disabled={loading}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+              />
+            </div>
+          )}
 
           <div className="button-row">
-            {stage === "ready" ? (
-              <button className="btn btn-primary" onClick={handleStartAgent} disabled={loading}>
-                {loading ? "Starting Agent..." : "Start Agent"}
+            {!started ? (
+              <button className="btn btn-primary" onClick={handleStart} disabled={loading}>
+                {loading ? "Connecting…" : "Start Chat"}
               </button>
             ) : (
-              <>
-                <button className="btn btn-primary" onClick={() => handleSendMessage()} disabled={loading}>
-                  {loading ? "Processing..." : "Send"}
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleSendMessage("Approve")} disabled={loading}>
-                  Quick Approve
-                </button>
-                <button className="btn btn-secondary" onClick={() => handleSendMessage("Cancel")} disabled={loading}>
-                  Cancel
-                </button>
-                <button className="btn btn-secondary" onClick={() => refreshThreadMessages(wxoSessionId)} disabled={loading || !wxoSessionId}>
-                  Refresh
-                </button>
-              </>
+              <button
+                className="btn btn-primary"
+                onClick={handleSend}
+                disabled={loading || !input.trim()}
+              >
+                {loading ? "Sending…" : "Send"}
+              </button>
             )}
-            <button className="btn btn-secondary" onClick={handleReset} disabled={loading}>
-              Reset
-            </button>
+            {started && (
+              <button className="btn btn-secondary" onClick={handleReset} disabled={loading}>
+                Reset
+              </button>
+            )}
           </div>
         </div>
       </div>

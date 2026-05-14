@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env", override=True)
 
-from routes import invoice, rides, invoice_db, profile, auth
+from routes import invoice, rides, invoice_db, profile, auth, help
 
 app = FastAPI(title="CareConnect API", version="1.0.0")
 
@@ -30,6 +30,7 @@ app.include_router(rides.router, prefix="/api/rides", tags=["Ride Planning"])
 app.include_router(invoice_db.router, prefix="/api/invoice-db", tags=["Invoice Records"])
 app.include_router(profile.router, prefix="/api/profile", tags=["Profile"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
+app.include_router(help.router, prefix="/api/help", tags=["Help"])
 
 
 @app.get("/")

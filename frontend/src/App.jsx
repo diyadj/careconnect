@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Routes, Route, NavLink } from "react-router-dom";
 import RidePlanningPage from "./pages/RidePlanningPage";
-import InvoicePage from "./pages/InvoicePage";
+import HelpPage from "./pages/InvoicePage";
 import InvoiceDatabasePage from "./pages/InvoiceDatabasePage";
 import ProfilePage from "./pages/ProfilePage";
 import LoginPage from "./pages/LoginPage";
@@ -46,7 +46,7 @@ export default function App() {
             Invoice Records
           </NavLink>
           <NavLink to="/" className={({ isActive }) => `nav-link${isActive ? " active" : ""}`} end>
-            Invoice Matching
+            Help &amp; Guidance
           </NavLink>
         </div>
         <div style={{ position: "relative" }}>
@@ -136,7 +136,7 @@ export default function App() {
           <Route path="/rides" element={<RidePlanningPage />} />
           <Route path="/invoice-records" element={<InvoiceDatabasePage />} />
           <Route path="/profile" element={<ProfilePage onLogout={handleLogout} />} />
-          <Route path="/" element={<InvoicePage />} />
+          <Route path="/" element={<HelpPage />} />
         </Routes>
       </main>
     </div>

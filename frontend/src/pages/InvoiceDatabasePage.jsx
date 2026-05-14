@@ -63,10 +63,15 @@ export default function InvoiceDatabasePage() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
-  // Multi-file queue state
+  // Transport receipt queue state
   const queueInputRef = useRef(null);
   const [isQueueDragOver, setIsQueueDragOver] = useState(false);
   const [pendingFiles, setPendingFiles] = useState([]);
+
+  // Meal receipt queue state
+  const mealQueueInputRef = useRef(null);
+  const [isMealDragOver, setIsMealDragOver] = useState(false);
+  const [pendingMeals, setPendingMeals] = useState([]);
 
   // Manual upload fallback state
   const [showManual, setShowManual] = useState(false);
@@ -166,6 +171,50 @@ export default function InvoiceDatabasePage() {
     for (const item of ready) {
       await extractInvoice(item.id);
     }
+  }
+
+  // ── Meal queue helpers ─────────────────────────────────────────────────────
+
+  function newMealItem(file) {
+    return { id: crypto.randomUUID(), file, status: "idle", result: null, matchInfo: null, error: null };
+  }
+
+  function updateMeal(id, updates) {
+    setPendingMeals((prev) => prev.map((m) => m.id === id ? { ...m, ...updates } : m));
+  }
+
+  function addMealsToQueue(files) {
+    const items = Array.from(files)
+      .filter((f) => /\.(pdf|jpe?g|png)$/i.test(f.name))
+      .map(newMealItem);
+    if (items.length === 0) { setError("Only PDF, JPG, and PNG files are accepted."); return; }
+    setPendingMeals((prev) => [...prev, ...items]);
+  }
+
+  function removeFromMealQueue(id) {
+    setPendingMeals((prev) => prev.filter((m) => m.id !== id));
+  }
+
+  async function extractMeal(id) {
+    const item = pendingMeals.find((m) => m.id === id);
+    if (!item) return;
+    setError(null);
+    updateMeal(id, { status: "extracting", error: null });
+    const fd = new FormData();
+    fd.append("file", item.file);
+    fd.append("year", String(year));
+    try {
+      const res = await api.post("/invoice-db/meal-extract", fd);
+      updateMeal(id, { status: "saved", result: res.data.record, matchInfo: res.data.match_info });
+      await loadInvoices();
+    } catch (err) {
+      updateMeal(id, { status: "error", error: err.response?.data?.detail || "Extraction failed." });
+    }
+  }
+
+  async function extractAllMeals() {
+    const ready = pendingMeals.filter((m) => m.status === "idle");
+    for (const item of ready) await extractMeal(item.id);
   }
 
   // ── Manual upload helpers ──────────────────────────────────────────────────
@@ -474,6 +523,59 @@ export default function InvoiceDatabasePage() {
                 onClick={extractAll}
               >
                 Extract All ({readyCount} ready)
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── Meal receipt upload ── */}
+      <div className="section" style={{ marginBottom: "1.5rem" }}>
+        <h3 style={{ marginTop: 0, marginBottom: "0.25rem" }}>Upload Meal Receipts</h3>
+        <p style={{ fontSize: "0.85rem", color: "var(--muted)", marginBottom: "1rem", marginTop: 0 }}>
+          Upload receipts for meals purchased on appointment days. The agent extracts the date and amount,
+          then automatically matches it to the nearest appointment in your records.
+        </p>
+
+        <div
+          onDragOver={(e) => { e.preventDefault(); setIsMealDragOver(true); }}
+          onDragLeave={() => setIsMealDragOver(false)}
+          onDrop={(e) => { e.preventDefault(); setIsMealDragOver(false); addMealsToQueue(e.dataTransfer.files); }}
+          onClick={() => mealQueueInputRef.current?.click()}
+          style={{
+            border: `2px dashed ${isMealDragOver ? "#a855f7" : "var(--border)"}`,
+            borderRadius: "12px",
+            padding: "1.75rem 2rem",
+            textAlign: "center",
+            cursor: "pointer",
+            background: isMealDragOver ? "rgba(168,85,247,0.06)" : "#fafbfc",
+            transition: "all 150ms ease",
+            marginBottom: pendingMeals.length > 0 ? "1.25rem" : 0,
+          }}
+        >
+          <div style={{ fontSize: "2rem", marginBottom: "0.4rem" }}>🍽️</div>
+          <div style={{ fontWeight: 600, marginBottom: "0.2rem" }}>Drop meal receipts here</div>
+          <div style={{ fontSize: "0.875rem", color: "var(--muted)" }}>or click to browse — PDF, JPG, PNG</div>
+          <input ref={mealQueueInputRef} type="file" hidden multiple accept=".pdf,.jpg,.jpeg,.png"
+            onChange={(e) => addMealsToQueue(e.target.files)} />
+        </div>
+
+        {pendingMeals.length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            {pendingMeals.map((item) => (
+              <MealFileCard
+                key={item.id}
+                item={item}
+                onUpdate={(updates) => updateMeal(item.id, updates)}
+                onExtract={() => extractMeal(item.id)}
+                onRemove={() => removeFromMealQueue(item.id)}
+              />
+            ))}
+            {pendingMeals.filter((m) => m.status === "idle").length > 1 && (
+              <button type="button" className="btn btn-primary"
+                style={{ alignSelf: "flex-start", marginTop: "0.25rem" }}
+                onClick={extractAllMeals}>
+                Extract All Meals ({pendingMeals.filter((m) => m.status === "idle").length} ready)
               </button>
             )}
           </div>
@@ -832,6 +934,79 @@ function FileCard({ item, onUpdate, onExtract, onRemove }) {
             style={{ fontSize: "0.82rem", padding: "0.3rem 0.75rem" }}
             onClick={() => onUpdate({ status: "idle", error: null })}
           >
+            Try again
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MealFileCard({ item, onUpdate, onExtract, onRemove }) {
+  const statusColors = { idle: "#f4f6f8", extracting: "#fdf4ff", saved: "#f0fdf4", error: "#fff5f5" };
+  const statusBorders = { idle: "var(--border)", extracting: "#e9d5ff", saved: "#bbf7d0", error: "#fecaca" };
+
+  return (
+    <div style={{ border: `1px solid ${statusBorders[item.status]}`, borderRadius: "12px", padding: "1rem 1.25rem", background: statusColors[item.status], transition: "all 200ms ease" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: item.status === "idle" ? "0.75rem" : "0.4rem" }}>
+        <span style={{ fontWeight: 600, fontSize: "0.9rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <span>{item.file.name.toLowerCase().endsWith(".pdf") ? "📄" : "🖼️"}</span>
+          <span style={{ maxWidth: "260px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.file.name}</span>
+          <span style={{ fontSize: "0.78rem", color: "var(--muted)", fontWeight: 400 }}>({(item.file.size / 1024).toFixed(0)} KB)</span>
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          {item.status === "extracting" && <span style={{ fontSize: "0.8rem", color: "#a855f7", fontWeight: 500 }}>Extracting…</span>}
+          {item.status === "saved" && <span style={{ fontSize: "0.82rem", color: "#16a34a", fontWeight: 600 }}>✓ Saved</span>}
+          {item.status === "error" && <span style={{ fontSize: "0.82rem", color: "#dc2626", fontWeight: 600 }}>✗ Failed</span>}
+          {(item.status === "idle" || item.status === "error") && (
+            <button type="button" onClick={onRemove}
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem", color: "var(--muted)", lineHeight: 1, padding: "0 0.2rem" }}>✕</button>
+          )}
+        </div>
+      </div>
+
+      {item.status === "idle" && (
+        <button type="button" className="btn btn-primary"
+          style={{ fontSize: "0.875rem", padding: "0.45rem 1rem", background: "#a855f7", borderColor: "#a855f7" }}
+          onClick={onExtract}>
+          Extract &amp; Match
+        </button>
+      )}
+
+      {item.status === "extracting" && (
+        <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: 0 }}>
+          Sending to meal agent… extracting date, vendor, and amount.
+        </p>
+      )}
+
+      {item.status === "saved" && item.result && (
+        <div style={{ fontSize: "0.85rem", color: "#374151" }}>
+          <span style={{ fontWeight: 500 }}>{formatDate(item.result.date)}</span>
+          {" · "}
+          <span>{item.result.vendor || "—"}</span>
+          {" · "}
+          <span style={{ fontWeight: 600, fontFamily: "Space Grotesk, sans-serif" }}>{fmt(item.result.amount)}</span>
+          {item.matchInfo ? (
+            <div style={{ marginTop: "0.35rem", fontSize: "0.8rem", color: "#16a34a", display: "flex", alignItems: "center", gap: "0.3rem" }}>
+              <span>✓ Matched →</span>
+              <span style={{ fontWeight: 500 }}>{item.matchInfo.description}</span>
+              {item.matchInfo.vendor && <span style={{ color: "var(--muted)" }}>· {item.matchInfo.vendor}</span>}
+              <span style={{ color: "var(--muted)" }}>· {formatDate(item.matchInfo.date)}</span>
+            </div>
+          ) : (
+            <div style={{ marginTop: "0.35rem", fontSize: "0.8rem", color: "#d97706" }}>
+              ⚠ No appointment found within ±1 day — saved as unmatched meal
+            </div>
+          )}
+        </div>
+      )}
+
+      {item.status === "error" && (
+        <div>
+          <p style={{ fontSize: "0.82rem", color: "#dc2626", margin: "0 0 0.5rem" }}>{item.error}</p>
+          <button type="button" className="btn btn-secondary"
+            style={{ fontSize: "0.82rem", padding: "0.3rem 0.75rem" }}
+            onClick={() => onUpdate({ status: "idle", error: null })}>
             Try again
           </button>
         </div>

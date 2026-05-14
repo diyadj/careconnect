@@ -126,20 +126,6 @@
       "created_at": "2026-04-30T20:15:00.000000",
       "updated_at": "2026-04-30T20:15:00.000000"
     },
-    "b2c3d4e5-0301-4000-8001-200000000301": {
-      "id": "b2c3d4e5-0301-4000-8001-200000000301",
-      "category": "transport",
-      "transport_type": "tixitaxi",
-      "date": "2026-05-06",
-      "vendor": "Physiotherapie am Marktplatz, St. Gallen",
-      "amount": 28.5,
-      "description": "Physiotherapy",
-      "filename": null,
-      "stored_name": null,
-      "year": 2026,
-      "created_at": "2026-05-06T09:45:00.000000",
-      "updated_at": "2026-05-06T09:45:00.000000"
-    },
     "b2c3d4e5-0302-4000-8001-200000000302": {
       "id": "b2c3d4e5-0302-4000-8001-200000000302",
       "category": "transport",
@@ -167,20 +153,6 @@
       "year": 2026,
       "created_at": "2026-05-12T18:00:00.000000",
       "updated_at": "2026-05-12T18:00:00.000000"
-    },
-    "b2c3d4e5-0304-4000-8001-200000000304": {
-      "id": "b2c3d4e5-0304-4000-8001-200000000304",
-      "category": "transport",
-      "transport_type": "private_car",
-      "date": "2026-05-20",
-      "vendor": "Institut f\u00c3\u00bcr Kinder- und Jugendpsychiatrie, Z\u00c3\u00bcrich",
-      "amount": 6.86,
-      "description": "Therapy",
-      "filename": null,
-      "stored_name": null,
-      "year": 2026,
-      "created_at": "2026-05-20T10:00:00.000000",
-      "updated_at": "2026-05-20T10:00:00.000000"
     },
     "30802349-4bab-47d7-8f6c-fd564ae992bd": {
       "id": "30802349-4bab-47d7-8f6c-fd564ae992bd",
