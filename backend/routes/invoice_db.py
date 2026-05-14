@@ -3,6 +3,8 @@ import json
 import uuid
 import re
 import shutil
+import asyncio
+import time
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -25,6 +27,23 @@ RIDES_FILE = os.path.join(os.path.dirname(__file__), "../data/rides.json")
 VALID_CATEGORIES = {"transport", "meal"}
 VALID_TRANSPORT_TYPES = {"tixitaxi", "public_transport", "private_car", "other", ""}
 ALLOWED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
+
+_TIXI_DEST_PRICES = [
+    (["zürich", "zurich", "zuerich"], 92.0),
+    (["luzern", "lucerne"], 145.0),
+    (["herisau", "appenzell", "trogen", "heiden"], 45.0),
+]
+
+def _estimate_ride_amount(ride: dict) -> float:
+    if ride.get("cost_chf") is not None:
+        return float(ride["cost_chf"])
+    if (ride.get("ride_type") or "") != "tixitaxi":
+        return 0.0
+    dest = (ride.get("destination") or "").lower()
+    for keywords, price in _TIXI_DEST_PRICES:
+        if any(k in dest for k in keywords):
+            return price
+    return 28.50
 
 
 # ---------- persistence ----------
@@ -67,17 +86,24 @@ def list_invoices(year: Optional[int] = None, category: Optional[str] = None):
     """Return all invoices and ride plan records for a year, optionally filtered by category."""
     target_year = str(year) if year else str(datetime.now().year)
     all_data = read_db()
-    records = [{"source": "invoice", **inv} for inv in all_data.get(target_year, {}).values()]
+    year_invoices = all_data.get(target_year, {})
+    records = [{"source": "invoice", **inv} for inv in year_invoices.values()]
+
+    # Build dedup set: skip ride plan entries already covered by an invoice record
+    invoice_keys = {(inv["date"], inv.get("transport_type", "")) for inv in year_invoices.values()}
 
     for ride in _read_rides().get(target_year, {}).values():
+        ride_type = ride.get("ride_type") or ""
+        if (ride["date"], ride_type) in invoice_keys:
+            continue
         records.append({
             "id": ride["id"],
             "source": "ride",
             "category": "transport",
-            "transport_type": ride.get("ride_type") or "",
+            "transport_type": ride_type,
             "date": ride["date"],
             "vendor": ride.get("destination") or "",
-            "amount": ride.get("cost_chf") or 0.0,
+            "amount": _estimate_ride_amount(ride),
             "description": ride.get("appointment_type") or "",
             "filename": None,
             "stored_name": None,
@@ -452,6 +478,26 @@ async def agent_extract_invoice(
     return record
 
 
+async def _wait_for_async_flow(thread_id: str, known_msg_ids: set, timeout: int = 90) -> str:
+    """Poll thread messages until a new substantive assistant message appears."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        await asyncio.sleep(3)
+        msgs = await get_thread_messages(thread_id)
+        for msg in reversed(msgs):
+            if msg.get("role") != "assistant":
+                continue
+            if msg.get("id") in known_msg_ids:
+                continue
+            text = extract_text_from_message(msg)
+            # Skip the async-flow-started placeholder
+            if "new flow has started" in text.lower():
+                continue
+            if text.strip():
+                return text
+    return ""
+
+
 def _parse_meal_response(text: str) -> Optional[dict]:
     """Extract date, vendor, amount from meal agent response."""
     if not text:
@@ -573,28 +619,26 @@ async def meal_extract_invoice(
     if run1.get("run_id"):
         await wait_for_run_completion(run1["run_id"])
 
+    # Record all message IDs before the async flow triggers
+    pre_msgs = await get_thread_messages(thread_id)
+    known_ids = {m.get("id") for m in pre_msgs}
+
     file_urls = await upload_files_to_wxo([{"filename": original_name, "content": file_bytes}])
     run2 = await create_run("", thread_id=thread_id, agent_id=agent_id, file_urls=file_urls, context_source="USER")
     if run2.get("run_id"):
         await wait_for_run_completion(run2["run_id"])
 
-    all_messages = await get_thread_messages(thread_id)
-    meal_data = None
-    last_agent_text = ""
-    for msg in reversed(all_messages):
-        if msg.get("role") != "assistant":
-            continue
-        text = extract_text_from_message(msg)
-        if not last_agent_text:
-            last_agent_text = text
-        meal_data = _parse_meal_response(text)
-        if meal_data:
-            break
+    # Flow runs async — poll until the result message appears
+    flow_result_text = await _wait_for_async_flow(thread_id, known_ids, timeout=90)
+    print("=== FLOW RESULT TEXT ===")
+    print(repr(flow_result_text))
+
+    meal_data = _parse_meal_response(flow_result_text) if flow_result_text else None
 
     if not meal_data:
         raise HTTPException(
             status_code=422,
-            detail=f"Agent could not extract meal data. Last response: {last_agent_text[:400]}",
+            detail=f"Agent could not extract meal data. Flow result: {flow_result_text[:800]}",
         )
 
     match_info = _find_matching_appointment(meal_data["date"])
@@ -621,6 +665,7 @@ async def meal_extract_invoice(
         "year": int(year_key),
         "created_at": now,
         "updated_at": now,
+        "match_ref": match_info,
     }
 
     all_data = read_db()

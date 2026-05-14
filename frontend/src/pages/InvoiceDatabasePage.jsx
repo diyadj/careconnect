@@ -295,6 +295,17 @@ export default function InvoiceDatabasePage() {
     new Set(invoices.filter((i) => i.category === "transport").map((i) => i.date.slice(0, 7)))
   ).sort();
 
+  // Meal match data: meals in current month, paired with their matched appointment
+  const mealRecords = monthInvoices.filter((i) => i.category === "meal");
+  const transportRecords = invoices.filter((i) => i.category === "transport");
+
+  function findTransportMatch(mealDate, storedRef) {
+    if (storedRef) return storedRef;
+    const md = new Date(mealDate).getTime();
+    const hit = transportRecords.find((t) => Math.abs(new Date(t.date).getTime() - md) <= 86400000);
+    return hit ? { date: hit.date, description: hit.description, vendor: hit.vendor } : null;
+  }
+
   const readyCount = pendingFiles.filter(
     (f) => f.status === "idle" && f.appointment_reason.trim() && f.appointment_address.trim()
   ).length;
@@ -756,6 +767,75 @@ export default function InvoiceDatabasePage() {
         )}
       </div>
 
+      {/* Meal receipt match split-screen */}
+      {mealRecords.length > 0 && (
+        <div className="section" style={{ marginTop: "2rem" }}>
+          <div style={{ marginBottom: "1rem" }}>
+            <h2 style={{ margin: "0 0 0.2rem" }}>Meal Receipt Matches</h2>
+            <p style={{ fontSize: "0.85rem", color: "var(--muted)", margin: 0 }}>
+              Each meal receipt is paired with the appointment it was associated with — confirming meals were consumed on appointment days.
+            </p>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            {mealRecords.map((meal) => {
+              const match = findTransportMatch(meal.date, meal.match_ref);
+              return (
+                <div key={meal.id} style={{ display: "grid", gridTemplateColumns: "1fr 40px 1fr", alignItems: "center", gap: "0" }}>
+                  {/* Meal card */}
+                  <div style={{ background: "#fdf4ff", border: "1px solid #e9d5ff", borderRadius: "12px 0 0 12px", padding: "1rem 1.25rem" }}>
+                    <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#7c3aed", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.5rem" }}>
+                      Meal Receipt
+                    </div>
+                    <div style={{ fontWeight: 600, fontSize: "0.95rem", marginBottom: "0.2rem" }}>{meal.vendor || "—"}</div>
+                    <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginBottom: "0.35rem" }}>{formatDate(meal.date)}</div>
+                    <div style={{ fontFamily: "Space Grotesk, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "#7c3aed" }}>
+                      {fmt(meal.amount)}
+                    </div>
+                    {meal.filename && (
+                      <a href={`/api/invoice-db/file/${meal.id}`} target="_blank" rel="noreferrer"
+                        style={{ display: "inline-block", marginTop: "0.4rem", fontSize: "0.78rem", color: "#7c3aed", textDecoration: "none", opacity: 0.8 }}>
+                        {meal.filename.endsWith(".pdf") ? "📄" : "🖼️"} View receipt
+                      </a>
+                    )}
+                  </div>
+
+                  {/* Arrow connector */}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", background: match ? "#f0fdf4" : "#fff8f0", borderTop: `1px solid ${match ? "#bbf7d0" : "#fed7aa"}`, borderBottom: `1px solid ${match ? "#bbf7d0" : "#fed7aa"}`, height: "100%", fontSize: "1.1rem", color: match ? "#16a34a" : "#d97706" }}>
+                    {match ? "→" : "⚠"}
+                  </div>
+
+                  {/* Appointment card */}
+                  {match ? (
+                    <div style={{ background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: "0 12px 12px 0", padding: "1rem 1.25rem" }}>
+                      <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#15803d", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.5rem" }}>
+                        Matched Appointment
+                      </div>
+                      <div style={{ fontWeight: 600, fontSize: "0.95rem", marginBottom: "0.2rem" }}>{match.description || "Appointment"}</div>
+                      <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginBottom: "0.35rem" }}>{match.vendor}</div>
+                      <div style={{ fontSize: "0.82rem", color: "#15803d", fontWeight: 500 }}>
+                        ✓ {formatDate(match.date)}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ background: "#fff8f0", border: "1px solid #fed7aa", borderRadius: "0 12px 12px 0", padding: "1rem 1.25rem" }}>
+                      <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#c2410c", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.5rem" }}>
+                        No Match Found
+                      </div>
+                      <div style={{ fontSize: "0.85rem", color: "#c2410c" }}>
+                        No appointment found within ±1 day of {formatDate(meal.date)}.
+                      </div>
+                      <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginTop: "0.3rem" }}>
+                        This meal will not be counted as appointment-linked.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* SVA Form Generator */}
       <div style={{ marginTop: "2rem", border: "1px solid #c8d8e4", borderRadius: "12px", overflow: "hidden" }}>
         <button
@@ -778,7 +858,7 @@ export default function InvoiceDatabasePage() {
               ) : (
                 <div className="chip-row" style={{ marginTop: "0.5rem" }}>
                   {svaMonthOptions.map((m) => {
-                    const label = new Date(m + "-01").toLocaleDateString("de-CH", { month: "long", year: "numeric" });
+                    const label = new Date(m + "-01").toLocaleDateString("en-GB", { month: "long", year: "numeric" });
                     return (
                       <button key={m} type="button" className={`chip${svaMonth === m ? " selected" : ""}`} onClick={() => setSvaMonth(m)}>{label}</button>
                     );
