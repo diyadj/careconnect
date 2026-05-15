@@ -105,23 +105,6 @@ export default function LoginPage({ onLogin }) {
           </button>
         </form>
 
-        <div
-          style={{
-            marginTop: "1.5rem",
-            padding: "0.75rem 1rem",
-            background: "#f8fafc",
-            borderRadius: "10px",
-            border: "1px solid var(--border)",
-            fontSize: "0.8rem",
-            color: "var(--muted)",
-            lineHeight: 1.6,
-          }}
-        >
-          <strong style={{ color: "#555" }}>Default credentials</strong>
-          <br />
-          Username: <code style={{ background: "#eee", padding: "0 4px", borderRadius: "3px" }}>admin</code>
-          &nbsp; Password: <code style={{ background: "#eee", padding: "0 4px", borderRadius: "3px" }}>careconnect123</code>
-        </div>
       </div>
     </div>
   );
