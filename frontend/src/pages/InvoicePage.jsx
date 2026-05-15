@@ -22,6 +22,7 @@ export default function HelpPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [bonusOpen, setBonusOpen] = useState(false);
   const streamRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -70,7 +71,64 @@ export default function HelpPage() {
   }
 
   return (
-    <div className="page">
+    <div className="page" style={{ position: "relative" }}>
+      {/* Diya's Bonus Task side pop-up */}
+      <div
+        style={{
+          position: "fixed",
+          left: "2rem",
+          top: "94px",
+          zIndex: 200,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "stretch",
+        }}
+      >
+        <button
+          onClick={() => setBonusOpen((o) => !o)}
+          style={{
+            background: "var(--primary)",
+            color: "white",
+            border: "none",
+            borderRadius: bonusOpen ? "0 0 0 0" : "0 0 12px 12px",
+            padding: "0.5rem 1.1rem",
+            cursor: "pointer",
+            fontWeight: 700,
+            fontSize: "0.85rem",
+            letterSpacing: "0.05em",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            whiteSpace: "nowrap",
+          }}
+          title={bonusOpen ? "Close" : "Diya's Bonus Task"}
+        >
+          Diya's Bonus Task
+        </button>
+        {bonusOpen && (
+          <div
+            style={{
+              background: "white",
+              border: "1px solid var(--border)",
+              borderTop: "none",
+              borderRadius: "0 0 12px 12px",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+              padding: "1.25rem 1.5rem",
+              width: "260px",
+              fontSize: "0.9rem",
+              color: "var(--ink)",
+            }}
+          >
+            <div style={{ fontWeight: 700, fontSize: "1rem", marginBottom: "0.75rem", color: "var(--primary)" }}>
+              Diya's Bonus Task
+            </div>
+            <p style={{ margin: 0, lineHeight: 1.6 }}>
+              This Help &amp; Guidance page is powered by a multi-turn AI help agent
+              backed by a knowledge base of SVA transport rules and CareConnect policies.
+              It supports contextual follow-up questions across the session.
+            </p>
+          </div>
+        )}
+      </div>
+
       <div className="page-header">
         <h1 className="page-title">Help & Guidance</h1>
         <p className="page-subtitle">
