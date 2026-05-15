@@ -150,17 +150,18 @@ async def send_tixi_email(year: Optional[int] = None):
         )
 
     target_year = str(year) if year else str(datetime.now().year)
+    today = datetime.now().date().isoformat()
     all_rides = read_rides()
     tixi_rides = [
         r for r in all_rides.get(target_year, {}).values()
-        if r.get("ride_type") == "tixitaxi"
+        if r.get("ride_type") == "tixitaxi" and r.get("date", "") >= today
     ]
     tixi_rides.sort(key=lambda r: (r["date"], r["time"]))
 
     if not tixi_rides:
         raise HTTPException(
             status_code=404,
-            detail=f"No TixiTaxi rides found for {target_year}.",
+            detail=f"No upcoming TixiTaxi rides found for {target_year}.",
         )
 
     header = f"{'Date':<12} {'Time':<8} {'From':<25} {'To':<25} {'Appointment':<20} Notes"

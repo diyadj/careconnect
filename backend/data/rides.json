@@ -180,21 +180,6 @@
       "created_at": "2026-04-13T09:00:00.000000",
       "updated_at": "2026-04-13T09:00:00.000000"
     },
-    "c287fef3-0c19-4113-bd2f-387364324cd7": {
-      "id": "c287fef3-0c19-4113-bd2f-387364324cd7",
-      "date": "2026-04-28",
-      "time": "17:44",
-      "origin": "St. Gallen, Gallusstrasse 14",
-      "destination": "Institut f\u00c3\u00bcr Kinder- und Jugendpsychiatrie, Z\u00c3\u00bcrich",
-      "appointment_type": "Therapy",
-      "ride_type": "tixitaxi",
-      "kilometers_driven": null,
-      "cost_chf": null,
-      "notes": "",
-      "year": 2026,
-      "created_at": "2026-04-27T17:45:03.889081",
-      "updated_at": "2026-04-27T17:45:03.889081"
-    },
     "116f3409-77ff-4719-b5ca-7129fc6bde4f": {
       "id": "116f3409-77ff-4719-b5ca-7129fc6bde4f",
       "date": "2026-04-30",
@@ -230,7 +215,7 @@
       "date": "2026-05-20",
       "time": "09:25",
       "origin": "St. Gallen, Gallusstrasse 14",
-      "destination": "Institut f\u00c3\u00bcr Kinder- und Jugendpsychiatrie, Z\u00c3\u00bcrich",
+      "destination": "Institute of Kinder Jugendpsychiatrie, Zurich",
       "appointment_type": "Therapy",
       "ride_type": "private_car",
       "kilometers_driven": 9.8,
@@ -238,7 +223,7 @@
       "notes": "",
       "year": 2026,
       "created_at": "2026-05-12T16:21:39.897666",
-      "updated_at": "2026-05-12T16:21:39.897666"
+      "updated_at": "2026-05-15T09:33:23.107898"
     },
     "a1b2c3d4-0016-4000-8000-100000000016": {
       "id": "a1b2c3d4-0016-4000-8000-100000000016",
@@ -254,6 +239,81 @@
       "year": 2026,
       "created_at": "2026-05-14T10:00:00.000000",
       "updated_at": "2026-05-14T10:00:00.000000"
+    },
+    "a1b2c3d4-0017-4000-8000-100000000017": {
+      "id": "a1b2c3d4-0017-4000-8000-100000000017",
+      "date": "2026-06-10",
+      "time": "09:00",
+      "origin": "St. Gallen, Gallusstrasse 14",
+      "destination": "Physiotherapie am Marktplatz, St. Gallen",
+      "appointment_type": "Physiotherapy",
+      "ride_type": "tixitaxi",
+      "kilometers_driven": null,
+      "cost_chf": null,
+      "notes": "",
+      "year": 2026,
+      "created_at": "2026-05-15T09:00:00.000000",
+      "updated_at": "2026-05-15T09:00:00.000000"
+    },
+    "a1b2c3d4-0018-4000-8000-100000000018": {
+      "id": "a1b2c3d4-0018-4000-8000-100000000018",
+      "date": "2026-06-17",
+      "time": "10:00",
+      "origin": "St. Gallen, Gallusstrasse 14",
+      "destination": "Psychiatrische Dienste AR, Herisau",
+      "appointment_type": "Psychiatry",
+      "ride_type": "tixitaxi",
+      "kilometers_driven": null,
+      "cost_chf": null,
+      "notes": "",
+      "year": 2026,
+      "created_at": "2026-05-15T10:00:00.000000",
+      "updated_at": "2026-05-15T10:00:00.000000"
+    },
+    "a1b2c3d4-0019-4000-8000-100000000019": {
+      "id": "a1b2c3d4-0019-4000-8000-100000000019",
+      "date": "2026-06-24",
+      "time": "09:00",
+      "origin": "St. Gallen, Gallusstrasse 14",
+      "destination": "Physiotherapie am Marktplatz, St. Gallen",
+      "appointment_type": "Physiotherapy",
+      "ride_type": "tixitaxi",
+      "kilometers_driven": null,
+      "cost_chf": null,
+      "notes": "",
+      "year": 2026,
+      "created_at": "2026-05-15T09:00:00.000000",
+      "updated_at": "2026-05-15T09:00:00.000000"
+    },
+    "a1b2c3d4-0020-4000-8000-100000000020": {
+      "id": "a1b2c3d4-0020-4000-8000-100000000020",
+      "date": "2026-06-03",
+      "time": "14:30",
+      "origin": "St. Gallen, Gallusstrasse 14",
+      "destination": "Kantonsspital St. Gallen",
+      "appointment_type": "Follow-up Consultation",
+      "ride_type": "private_car",
+      "kilometers_driven": 5.5,
+      "cost_chf": 3.85,
+      "notes": "Bring insurance card",
+      "year": 2026,
+      "created_at": "2026-05-15T10:00:00.000000",
+      "updated_at": "2026-05-15T10:00:00.000000"
+    },
+    "65951d6b-16d3-4aa3-872a-ff5d825d29e4": {
+      "id": "65951d6b-16d3-4aa3-872a-ff5d825d29e4",
+      "date": "2026-05-15",
+      "time": "10:35",
+      "origin": "St Gallen",
+      "destination": "Zurich",
+      "appointment_type": "Therapy ",
+      "ride_type": "tixitaxi",
+      "kilometers_driven": null,
+      "cost_chf": null,
+      "notes": "",
+      "year": 2026,
+      "created_at": "2026-05-15T10:33:52.553507",
+      "updated_at": "2026-05-15T10:33:52.553507"
     }
   }
 }

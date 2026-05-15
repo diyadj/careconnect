@@ -118,6 +118,9 @@ export default function RidePlanningPage() {
   // Edit mode state
   const [editingId, setEditingId] = useState(null);
 
+  // Rides view toggle
+  const [ridesView, setRidesView] = useState("upcoming");
+
   // Email send state
   const [emailSending, setEmailSending] = useState(false);
   const [emailResult, setEmailResult] = useState(null);
@@ -216,14 +219,20 @@ export default function RidePlanningPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  const today = new Date().toISOString().split("T")[0];
+
+  function isUpcoming(ride) {
+    return ride.date >= today;
+  }
+
   async function handleSendTixiEmail() {
     setEmailSending(true);
     setEmailResult(null);
     try {
-      const res = await api.post("/rides/send-tixi-email", null, {
+      await api.post("/rides/send-tixi-email", null, {
         params: { year: currentYear },
       });
-      setEmailResult({ ok: true, message: `Sent ${res.data.count} ride${res.data.count !== 1 ? "s" : ""} to ${res.data.to}.` });
+      setEmailResult({ ok: true, message: "Ride requests sent to TixiTaxi." });
     } catch (err) {
       setEmailResult({ ok: false, message: err.response?.data?.detail || "Failed to send email." });
     } finally {
@@ -470,7 +479,41 @@ export default function RidePlanningPage() {
       {/* Rides List */}
       <div className="section" style={{ marginTop: "2rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
-          <h2 style={{ margin: 0 }}>Your Rides ({rides.length})</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+            <h2 style={{ margin: 0 }}>Your Rides</h2>
+            <div
+              style={{
+                display: "inline-flex",
+                background: "#e5e7eb",
+                borderRadius: "8px",
+                padding: "3px",
+                gap: "2px",
+              }}
+            >
+              {["upcoming", "past"].map((view) => (
+                <button
+                  key={view}
+                  type="button"
+                  onClick={() => setRidesView(view)}
+                  style={{
+                    padding: "0.35rem 0.85rem",
+                    borderRadius: "6px",
+                    border: "none",
+                    fontSize: "0.85rem",
+                    fontWeight: ridesView === view ? 600 : 400,
+                    cursor: "pointer",
+                    background: ridesView === view ? "#ffffff" : "transparent",
+                    color: ridesView === view ? "#0e7c86" : "#6b7280",
+                    boxShadow: ridesView === view ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                    transition: "all 120ms ease",
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {view}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="button-row" style={{ gap: "0.6rem" }}>
             <button
               className="btn btn-secondary"
@@ -491,27 +534,32 @@ export default function RidePlanningPage() {
 
         {loading ? (
           <p style={{ color: "var(--muted)" }}>Loading rides...</p>
-        ) : rides.length === 0 ? (
-          <p style={{ color: "var(--muted)" }}>No rides planned yet. Add one above!</p>
-        ) : (
-          <div style={{ display: "grid", gap: "1rem" }}>
-            {rides.map((ride) => (
-              <RideCard
-                key={ride.id}
-                ride={ride}
-                onEdit={handleEditRide}
-                onDelete={handleDeleteRide}
-                onCancel={handleOpenCancelModal}
-                canCancel={isTaxiRide(ride)}
-                isEditing={editingId === ride.id}
-              />
-            ))}
-          </div>
-        )}
+        ) : (() => {
+          const filtered = rides.filter((r) => ridesView === "upcoming" ? isUpcoming(r) : !isUpcoming(r));
+          return filtered.length === 0 ? (
+            <p style={{ color: "var(--muted)" }}>
+              {ridesView === "upcoming" ? "No upcoming rides. Add one above!" : "No past rides."}
+            </p>
+          ) : (
+            <div style={{ display: "grid", gap: "1rem" }}>
+              {filtered.map((ride) => (
+                <RideCard
+                  key={ride.id}
+                  ride={ride}
+                  onEdit={handleEditRide}
+                  onDelete={handleDeleteRide}
+                  onCancel={handleOpenCancelModal}
+                  canCancel={isTaxiRide(ride) && ridesView === "upcoming"}
+                  isEditing={editingId === ride.id}
+                />
+              ))}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Send to Taxi */}
-      <div
+      {ridesView === "upcoming" && <div
         className="section"
         style={{
           marginTop: "2rem",
@@ -547,11 +595,11 @@ export default function RidePlanningPage() {
         <button
           className="btn btn-primary"
           onClick={handleSendTixiEmail}
-          disabled={emailSending || rides.filter((r) => r.ride_type === "tixitaxi").length === 0}
+          disabled={emailSending || rides.filter((r) => r.ride_type === "tixitaxi" && isUpcoming(r)).length === 0}
         >
           {emailSending ? "Sending…" : "Book TixiTaxi Rides"}
         </button>
-      </div>
+      </div>}
 
       {cancelRide && (
         <CancelRideModal

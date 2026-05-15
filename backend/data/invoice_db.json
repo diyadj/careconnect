@@ -103,7 +103,7 @@
       "category": "transport",
       "transport_type": "tixitaxi",
       "date": "2026-04-28",
-      "vendor": "Institut für Kinder- und Jugendpsychiatrie, Zürich",
+      "vendor": "Institut f\u00c3\u00bcr Kinder- und Jugendpsychiatrie, Z\u00c3\u00bcrich",
       "amount": 92.0,
       "description": "Therapy",
       "filename": null,
@@ -117,7 +117,7 @@
       "category": "transport",
       "transport_type": "tixitaxi",
       "date": "2026-04-30",
-      "vendor": "Institut für Kinder- und Jugendpsychiatrie, Zürich",
+      "vendor": "Institut f\u00c3\u00bcr Kinder- und Jugendpsychiatrie, Z\u00c3\u00bcrich",
       "amount": 92.0,
       "description": "Therapy (return)",
       "filename": null,
@@ -175,7 +175,7 @@
       "date": "2026-05-20",
       "vendor": "Alpine Consulting Group AG",
       "amount": 452.0,
-      "description": "Meal · Therapy",
+      "description": "Meal \u00c2\u00b7 Therapy",
       "filename": "Sample Meal Invoice 2.pdf",
       "stored_name": "6e4fa9d1-ac64-426f-969c-2e0755f6a72e.pdf",
       "year": 2026,
@@ -184,7 +184,7 @@
       "match_ref": {
         "date": "2026-05-20",
         "description": "Therapy",
-        "vendor": "Institut für Kinder- und Jugendpsychiatrie, Zürich"
+        "vendor": "Institut f\u00c3\u00bcr Kinder- und Jugendpsychiatrie, Z\u00c3\u00bcrich"
       }
     },
     "m001-meal-4000-8001-300000000001": {
@@ -194,7 +194,7 @@
       "date": "2026-03-25",
       "vendor": "Migros Restaurant, St. Gallen",
       "amount": 14.2,
-      "description": "Meal · General Practitioner",
+      "description": "Meal \u00c2\u00b7 General Practitioner",
       "filename": null,
       "stored_name": null,
       "year": 2026,
@@ -211,9 +211,9 @@
       "category": "meal",
       "transport_type": "",
       "date": "2026-04-08",
-      "vendor": "Bäckerei Seiler, Herisau",
+      "vendor": "B\u00c3\u00a4ckerei Seiler, Herisau",
       "amount": 9.8,
-      "description": "Meal · Psychiatry",
+      "description": "Meal \u00c2\u00b7 Psychiatry",
       "filename": null,
       "stored_name": null,
       "year": 2026,
@@ -230,9 +230,9 @@
       "category": "meal",
       "transport_type": "",
       "date": "2026-04-28",
-      "vendor": "Café Zähringer, Zürich",
+      "vendor": "Caf\u00c3\u00a9 Z\u00c3\u00a4hringer, Z\u00c3\u00bcrich",
       "amount": 24.8,
-      "description": "Meal · Therapy",
+      "description": "Meal \u00c2\u00b7 Therapy",
       "filename": null,
       "stored_name": null,
       "year": 2026,
@@ -241,7 +241,7 @@
       "match_ref": {
         "date": "2026-04-28",
         "description": "Therapy",
-        "vendor": "Institut für Kinder- und Jugendpsychiatrie, Zürich"
+        "vendor": "Institut f\u00c3\u00bcr Kinder- und Jugendpsychiatrie, Z\u00c3\u00bcrich"
       }
     },
     "m004-meal-4000-8001-300000000004": {
@@ -251,7 +251,7 @@
       "date": "2026-05-12",
       "vendor": "Restaurant Galliker, Luzern",
       "amount": 33.5,
-      "description": "Meal · Medical Appointment",
+      "description": "Meal \u00c2\u00b7 Medical Appointment",
       "filename": null,
       "stored_name": null,
       "year": 2026,
@@ -261,6 +261,39 @@
         "date": "2026-05-12",
         "description": "Medical Appointment",
         "vendor": "Luzerner Kantonsspital, Luzern"
+      }
+    },
+    "19948c22-e18d-437c-965e-2c8bf14da5e5": {
+      "id": "19948c22-e18d-437c-965e-2c8bf14da5e5",
+      "category": "transport",
+      "transport_type": "public_transport",
+      "date": "2024-07-14",
+      "vendor": "Klinikstra\u00dfe 5, 8400 Winterthur",
+      "amount": 12.8,
+      "description": "Doctor Visit",
+      "filename": "SBB Ticket Example.PNG",
+      "stored_name": "19948c22-e18d-437c-965e-2c8bf14da5e5.png",
+      "year": 2026,
+      "created_at": "2026-05-15T10:35:21.432851",
+      "updated_at": "2026-05-15T10:35:21.432851"
+    },
+    "50df8311-a58f-44aa-812e-c6247bbcb046": {
+      "id": "50df8311-a58f-44aa-812e-c6247bbcb046",
+      "category": "meal",
+      "transport_type": "",
+      "date": "2026-05-20",
+      "vendor": "Alpine Consulting Group AG",
+      "amount": 452.0,
+      "description": "Meal \u00b7 Therapy",
+      "filename": "Sample Meal Invoice 2 (1).pdf",
+      "stored_name": "50df8311-a58f-44aa-812e-c6247bbcb046.pdf",
+      "year": 2026,
+      "created_at": "2026-05-15T10:37:36.583071",
+      "updated_at": "2026-05-15T10:37:36.583071",
+      "match_ref": {
+        "date": "2026-05-20",
+        "description": "Therapy",
+        "vendor": "Institute of Kinder Jugendpsychiatrie, Zurich"
       }
     }
   }
