@@ -293,7 +293,11 @@ export default function InvoiceDatabasePage() {
 
   const svaMonthOptions = Array.from(
     new Set(invoices.filter((i) => i.category === "transport").map((i) => i.date.slice(0, 7)))
-  ).sort();
+  ).sort((a, b) => {
+    const [ay, am] = a.split("-").map(Number);
+    const [by, bm] = b.split("-").map(Number);
+    return ay !== by ? ay - by : am - bm;
+  });
 
   // Meal match data: meals in current month, paired with their matched appointment
   const mealRecords = monthInvoices.filter((i) => i.category === "meal");
@@ -856,7 +860,8 @@ export default function InvoiceDatabasePage() {
               ) : (
                 <div className="chip-row" style={{ marginTop: "0.5rem" }}>
                   {svaMonthOptions.map((m) => {
-                    const label = new Date(m + "-01").toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+                    const [my, mm] = m.split("-").map(Number);
+                    const label = new Date(my, mm - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
                     return (
                       <button key={m} type="button" className={`chip${svaMonth === m ? " selected" : ""}`} onClick={() => setSvaMonth(m)}>{label}</button>
                     );

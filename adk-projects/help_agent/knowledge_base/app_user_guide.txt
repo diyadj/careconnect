@@ -1,0 +1,129 @@
+# CareConnect App User Guide
+
+## Overview
+
+CareConnect helps families in the Swiss IV/EL disability benefits system manage
+administrative tasks related to care coordination. It automates invoice extraction,
+transport cost logging, ride scheduling, and TixiTaxi coordination so that families
+spend less time on paperwork and more time on care.
+
+---
+
+## 1. Invoice Submission (Help & Guidance tab → Invoice page)
+
+### What it does
+Upload a transport or meal receipt image and the AI agent extracts the relevant
+fields, classifies the transport type, asks for the appointment reason and provider,
+then assembles a validated row ready for SVA Form 5050.
+
+### Step-by-step
+1. Go to the **Invoice** tab in the navigation bar.
+2. Click **Upload Receipt** and select a photo or PDF of the receipt.
+3. Click **Start** to send the receipt to the extraction agent.
+4. The agent will display what it extracted (date, amount, transport type).
+   - If a field is missing it will tell you clearly.
+5. The agent asks two questions in one message:
+   - *What was the reason for this appointment?* (e.g. Physiotherapie, Arztbesuch)
+   - *What is the name and location of the care provider?* (e.g. Kantonsspital St. Gallen)
+   Type both answers and click Send.
+6. The agent shows you the completed row. Review it carefully.
+7. Click **Approve** to save the row, or type a correction and the agent
+   will update the row before saving.
+
+### What gets saved
+Each approved row is added to Invoice Records (see section 3).
+
+### Tips
+- Use a clear, well-lit photo — receipts photographed in shadow are often misread.
+- For private car trips there is no receipt. The agent will ask you for the number
+  of kilometres driven instead of an amount.
+- If you uploaded the wrong file, refresh the page to start a new session.
+
+---
+
+## 2. Ride Planning
+
+### What it does
+Create, update, and delete planned transport appointments. Send the list to TixiTaxi
+by email, or cancel a specific ride by phone — both directly from the app.
+
+### Adding a ride
+1. Go to **Ride Planning** in the navigation bar.
+2. Click **Add Ride**.
+3. Fill in:
+   - Date and time of the appointment
+   - Origin (pickup address)
+   - Destination (care provider address)
+   - Appointment type (Arztbesuch, Physiotherapie, Dialyse, etc.)
+4. Click **Save**. The ride appears in the list for the selected year.
+
+### Editing or deleting a ride
+- Click the **Edit** (pencil) icon on any ride card.
+- Update the fields and click Save, or click **Delete** to remove the ride.
+
+### Sending rides to TixiTaxi
+1. Select the rides you want to send.
+2. Click **Send to TixiTaxi**. The app formats the ride list as an email
+   and sends it to the configured TixiTaxi address via the AI email agent.
+3. Book at least **48 hours** before the appointment.
+
+### Cancelling a ride
+1. Find the ride in the list.
+2. Click **Cancel Ride**.
+3. The app automatically calls the TixiTaxi cancellation line via Twilio.
+   You do not need to call manually.
+
+---
+
+## 3. Invoice Records (Invoice Database)
+
+### What it does
+Shows a combined list of all logged transport invoices and planned rides for the year,
+with cost summaries by category (Transport / Meal).
+
+### How to use it
+- Use the **category filter** (Transport / Meal / All) to narrow the list.
+- Click the **download icon** on any row to view or download the original receipt file.
+- Each row shows: date, vendor/provider, amount, transport type, and category.
+- Ride entries show an estimated cost (CHF 0.70/km for private car, or the
+  logged taxi amount).
+
+### Editing an invoice
+- Click the **Edit** icon on any invoice row.
+- You can update the vendor, amount, date, or category.
+- Click Save.
+
+### Deleting an invoice
+- Click the **Delete** icon on a row.
+- Deletion is permanent; download the receipt file first if you need a copy.
+
+---
+
+## 4. Profile
+
+### What is stored
+- Parent / guardian name and contact details
+- Child name and AHV number (Sozialversicherungsnummer)
+- Invoice mailing address (sent to SVA on invoices)
+- Account username and password
+
+### How to update
+1. Go to **Profile** (user menu, top right → Profile).
+2. Edit any field.
+3. Click **Save Changes**.
+
+### Security note
+Your AHV number and password are stored locally on your device. Do not share
+your account credentials.
+
+---
+
+## 5. Help & Guidance
+
+The Help tab opens a chat with this agent. Type any question about:
+- How to use a CareConnect feature
+- SVA reimbursement rules and Form 5050
+- IV/EL eligibility and documentation
+- TixiTaxi booking and cancellation
+
+The agent replies in the language you write in (German or English).

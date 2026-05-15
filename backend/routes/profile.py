@@ -19,7 +19,7 @@ DEFAULT_PROFILE = {
     "child_ahv_number": "756.",
     "date_of_birth": "",
     "notes": "",
-    "account_username": "admin",
+    "account_username": "anna.mueller",
     "account_password": "careconnect123",
 }
 

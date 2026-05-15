@@ -1,0 +1,115 @@
+# Swiss IV/EL Disability Benefits — Frequently Asked Questions
+
+## About IV (Invalidenversicherung)
+
+**What is IV?**
+IV (Invalidenversicherung) is Switzerland's federal disability insurance. It provides
+benefits to people whose ability to work or carry out daily activities is permanently
+impaired due to illness, accident, or congenital condition. IV is administered
+federally but delivered through the 26 kantonal SVA Durchführungsstellen.
+
+**What transport costs does IV cover?**
+IV covers necessary transport to approved medical and therapeutic treatments:
+- Travel to doctors, hospitals, physiotherapists, occupational therapists, and other
+  approved treatment providers named in the IV decision (Verfügung).
+- Reimbursed via SVA Form 5050 using one of three transport types:
+  OV (public transport), Privatauto (private car at CHF 0.70/km), or Taxi.
+
+**Who qualifies for IV transport reimbursement?**
+Persons who hold a valid IV Verfügung that includes Behandlungskostenvergütung
+(treatment cost reimbursement). If you are unsure whether your child's Verfügung
+includes transport, contact your kantonal SVA office.
+
+**What is a Verfügung?**
+A Verfügung is the official IV/EL decision document. It specifies:
+- Which benefits you are entitled to
+- Which treatment providers are approved
+- The duration and scope of the entitlement
+Always check your Verfügung before assuming a trip is covered.
+
+---
+
+## About EL (Ergänzungsleistungen)
+
+**What is EL?**
+EL (Ergänzungsleistungen) are supplementary benefits paid on top of IV/AHV to cover
+basic living costs that IV alone does not fully cover. EL is means-tested — entitlement
+depends on income and assets.
+
+**What does EL cover that IV does not?**
+EL can cover:
+- Meal costs at approved day structures, care centres, or institutions
+- Home care costs beyond what IV reimburses
+- Specific living expenses defined in the EL decision
+
+**How are meal costs submitted?**
+Meal costs are tracked in CareConnect under the **Meal** category. They are submitted
+on the EL claim form (not Form 5050). Check with your kantonal SVA office for the
+correct EL reimbursement form and submission deadline for your canton.
+
+---
+
+## Documentation & Records
+
+**What receipts must I keep?**
+Keep original receipts for all transport and meal costs for at least **5 years**.
+The SVA can request them during an audit at any time.
+
+**What information must a receipt show?**
+A valid receipt should show:
+- Date of travel or service
+- Amount paid in CHF
+- Provider name (taxi company, SBB, etc.)
+
+If a receipt is missing or illegible, note the trip in writing with date, route,
+amount, and reason — and keep this with your records.
+
+**Can I submit scanned or photographed receipts?**
+For CareConnect processing, yes — upload a clear photo or PDF. For the SVA submission,
+check with your kantonal office whether they accept digital copies or require originals.
+
+---
+
+## Submission & Deadlines
+
+**When should I submit Form 5050?**
+Submit by the **end of the month following** the month of treatment. For example,
+trips in March should be submitted by the end of April.
+
+**What happens if I submit late?**
+Late submissions may be rejected by the SVA. If you have a good reason for the delay,
+contact your SVA office before the deadline to request an extension.
+
+**Can I submit multiple months at once?**
+Generally no — submit monthly as required. If you have missed a month, contact your
+SVA office; they may accept a catch-up submission with documentation.
+
+**Where do I submit?**
+To the kantonal SVA Durchführungsstelle that manages your IV/EL case. The correct
+office is named in your Verfügung. Contact details: [www.ahv-iv.ch](https://www.ahv-iv.ch)
+
+---
+
+## Common Mistakes to Avoid
+
+| Mistake | Correct approach |
+|---|---|
+| Filling two cost columns (e.g. both OV and Taxi) for the same row | Use exactly one cost column per row |
+| Claiming full train fare when you have a Halbtaxabo | Use the reduced price you actually paid |
+| Submitting a trip to a provider not in the Verfügung | Confirm approval with SVA before the appointment |
+| Missing the Behandlungsgrund or Behandlungsort | Always include both — the SVA will reject incomplete rows |
+| Losing original receipts | Photograph receipts immediately and store in CareConnect |
+| Submitting meal costs on Form 5050 | Meals are covered under EL, not Form 5050 |
+
+---
+
+## Getting Help
+
+- **CareConnect Help & Guidance**: Chat with this agent for questions about the app
+  or SVA rules.
+- **Kantonal SVA office**: For questions about your specific Verfügung, entitlements,
+  or submission deadlines. Find your office at [www.ahv-iv.ch](https://www.ahv-iv.ch).
+- **Pro Infirmis**: Swiss disability support organisation with regional offices.
+  Offers free advice on IV/EL claims. [www.proinfirmis.ch](https://www.proinfirmis.ch)
+- **Procap**: Another disability organisation offering legal and administrative advice.
+  [www.procap.ch](https://www.procap.ch)

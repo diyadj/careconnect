@@ -180,21 +180,6 @@
       "created_at": "2026-04-13T09:00:00.000000",
       "updated_at": "2026-04-13T09:00:00.000000"
     },
-    "116f3409-77ff-4719-b5ca-7129fc6bde4f": {
-      "id": "116f3409-77ff-4719-b5ca-7129fc6bde4f",
-      "date": "2026-04-30",
-      "time": "19:43",
-      "origin": "Institut f\u00c3\u00bcr Kinder- und Jugendpsychiatrie, Z\u00c3\u00bcrich",
-      "destination": "St. Gallen, Gallusstrasse 14",
-      "appointment_type": "Therapy (return)",
-      "ride_type": "tixitaxi",
-      "kilometers_driven": null,
-      "cost_chf": null,
-      "notes": "",
-      "year": 2026,
-      "created_at": "2026-04-29T17:42:25.940305",
-      "updated_at": "2026-04-29T17:42:25.940305"
-    },
     "a1b2c3d4-0014-4000-8000-100000000014": {
       "id": "a1b2c3d4-0014-4000-8000-100000000014",
       "date": "2026-05-06",

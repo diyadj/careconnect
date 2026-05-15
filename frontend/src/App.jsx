@@ -38,7 +38,7 @@ export default function App() {
     <div className="app-shell">
       <nav className="app-nav">
         <img src={careconnectLogo} alt="CareConnect" style={{ height: "60px", borderRadius: "4px" }} />
-        <div style={{ display: "flex", alignItems: "center", gap: "1rem", margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "1rem", flex: 1 }}>
           <NavLink to="/rides" className={({ isActive }) => `nav-link${isActive ? " active" : ""}`}>
             Ride Planning
           </NavLink>

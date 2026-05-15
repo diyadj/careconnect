@@ -1,0 +1,119 @@
+# TixiTaxi Coordination Guide
+
+## What is TixiTaxi?
+
+TixiTaxi (also written Tixi Taxi) is a subsidised, wheelchair-accessible transport
+service operated in many Swiss cantons for people with disabilities. It provides
+door-to-door transport to medical appointments and care facilities at reduced rates
+for IV/EL beneficiaries.
+
+TixiTaxi rides are eligible for SVA transport reimbursement under the
+**Taxi und andere Fahrdienste** category on Form 5050.
+
+---
+
+## Booking a TixiTaxi Ride via CareConnect
+
+### When to book
+Book at least **48 hours before** the appointment. Last-minute bookings cannot be
+guaranteed. For recurring appointments (e.g. weekly physiotherapy), contact TixiTaxi
+directly to set up a standing order.
+
+### Step-by-step booking
+1. Go to **Ride Planning** in CareConnect.
+2. Click **Add Ride** and fill in:
+   - Date and time of the appointment
+   - Pickup address (your home or another address)
+   - Destination (care provider name and address)
+   - Appointment type (Physiotherapie, Arztbesuch, etc.)
+3. Click **Save**.
+4. Once your rides for the period are ready, click **Send to TixiTaxi**.
+5. CareConnect formats the ride list as an email and sends it to the
+   configured TixiTaxi contact address automatically.
+6. TixiTaxi will confirm the booking by phone or email. Wait for confirmation
+   before assuming the ride is booked.
+
+### What information TixiTaxi needs
+- Passenger name and date of birth
+- Pickup address and time
+- Destination address
+- Wheelchair or mobility aid requirements
+- Contact phone number for the day of travel
+
+CareConnect pre-fills name and address from your Profile. Make sure your Profile
+is up to date before sending.
+
+---
+
+## Cancelling a TixiTaxi Ride
+
+### Via CareConnect (recommended)
+1. Find the ride in the **Ride Planning** list.
+2. Click **Cancel Ride**.
+3. CareConnect automatically calls the TixiTaxi cancellation line via Twilio.
+   The call is placed on your behalf — you do not need to be on the phone.
+4. The ride is marked as cancelled in your records.
+
+### Cancellation deadline
+Cancel at least **24 hours before** the scheduled pickup. Late cancellations
+may incur a no-show fee depending on your canton's TixiTaxi operator.
+
+### If the automatic call fails
+If you see an error after clicking Cancel Ride, call TixiTaxi directly using
+the number for your canton (see below). Note the cancellation reference number
+they give you.
+
+---
+
+## TixiTaxi Contact Numbers by Region
+
+| Region | Operator | Phone |
+|---|---|---|
+| Zürich | Tixi ZH | 044 272 00 00 |
+| Bern | Tixi BE | 031 300 50 20 |
+| Basel-Stadt | Tixi BS | 061 266 99 55 |
+| St. Gallen | Tixi SG | 071 277 30 40 |
+| Aargau | Tixi AG | 062 823 74 74 |
+
+For cantons not listed, contact your kantonal SVA Durchführungsstelle for the
+local Fahrdienst provider.
+
+---
+
+## Receipts and Reimbursement
+
+- TixiTaxi provides a receipt or invoice after each ride.
+- Upload the receipt to CareConnect (Invoice Submission) and the agent will
+  classify it as **Taxi und andere Fahrdienste** on Form 5050.
+- In some cantons, TixiTaxi invoices are billed directly to the SVA — check
+  with your SVA office whether you still need to include them on Form 5050.
+
+---
+
+## Recurring Appointments
+
+For appointments that happen on a regular schedule (e.g. every Tuesday for
+dialysis), you can:
+1. Add all future rides in Ride Planning at once (one ride per date).
+2. Send the full list to TixiTaxi in one email via CareConnect.
+3. TixiTaxi can set up a standing order for recurring routes.
+
+---
+
+## Frequently Asked Questions
+
+**Can TixiTaxi accommodate a wheelchair?**
+Yes — TixiTaxi vehicles are accessible for wheelchairs. Mention the wheelchair
+or any specific mobility aids when booking.
+
+**Can a parent or carer accompany the child?**
+Yes, in most cases one accompanying person travels at no additional charge.
+Confirm with your local TixiTaxi operator when booking.
+
+**What if TixiTaxi is fully booked?**
+If TixiTaxi cannot accommodate the ride, you may need to use a private taxi.
+Keep the receipt and submit it under the Taxi category on Form 5050 as normal.
+
+**Does TixiTaxi operate on weekends and public holidays?**
+Service varies by canton and operator. Check availability when booking, especially
+for weekend appointments.

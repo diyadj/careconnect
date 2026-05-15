@@ -1,0 +1,103 @@
+# SVA Transport Reimbursement Rules — Form 5050
+
+## What is Form 5050?
+
+SVA Form 5050 (Reisekostenabrechnung) is the monthly transport cost table submitted
+to the kantonal SVA Durchführungsstelle by families receiving IV/EL benefits. Each row
+records one trip to an approved treatment provider.
+
+---
+
+## Required Fields per Row
+
+| Field | Description |
+|---|---|
+| Reisedatum | Date of travel (DD.MM.YYYY) |
+| Behandlungsgrund | Reason for the appointment (e.g. Physiotherapie, Arztbesuch) |
+| Behandlungsort | Name and location of the care provider |
+| Cost column | Exactly one of: Billetpreis OV, Privatauto, or Taxi — never more than one |
+| Total | Sum of the one filled cost column |
+
+---
+
+## Transport Categories
+
+### 1. OV — Öffentlicher Verkehr (Public Transport)
+
+- **Eligible**: SBB, BLS, ZVV, PostAuto, tram, bus, S-Bahn tickets
+- **Class**: 2nd class only. First-class supplements are not reimbursed.
+- **Half-fare / GA**: If you hold a Halbtaxabo or GA, use the price you actually paid
+  (i.e. the discounted price). Do not claim the full fare.
+- **Amount**: The price printed on the ticket or receipt.
+- **Column**: Billetpreis OV 2. Klasse
+
+### 2. Privatauto (Private Car)
+
+- **Rate**: CHF 0.70 per kilometre (SVA fixed rate, 2024).
+- **No receipt required**: Enter the number of kilometres driven; the app calculates
+  the reimbursable amount automatically (km × 0.70).
+- **Route**: Direct route from home to care provider and back. Detours are not covered.
+- **Column**: Privatauto
+- **Note**: The SVA may request a mileage log (Fahrtenbuch) for audit purposes.
+  Keep a simple record of date, route, and km.
+
+### 3. Taxi und andere Fahrdienste (Taxi & Transport Services)
+
+- **Eligible**: Licensed taxi, TixiTaxi (subsidised wheelchair transport), Uber,
+  Krankenfahrten, Begleitfahrten.
+- **Amount**: The amount shown on the receipt or invoice from the taxi company.
+- **Receipt required**: Always obtain and keep the original receipt.
+- **Column**: Taxi und andere Fahrdienste
+- **TixiTaxi note**: TixiTaxi invoices are usually sent separately by the canton.
+  Check with your SVA office whether you submit them on Form 5050 or separately.
+
+---
+
+## Rules You Must Follow
+
+1. **One cost column per row.** Never fill two columns for the same trip.
+2. **One row per receipt.** Do not combine multiple trips on one row.
+3. **Original receipts.** Keep all originals for at least 5 years. The SVA can
+   request them during an audit.
+4. **Approved providers only.** Reimbursement applies only to trips to care
+   providers listed in your IV/EL decision (Verfügung). Contact your SVA office
+   if you are unsure whether a new provider is approved.
+5. **Monthly submission.** Submit Form 5050 by the end of the month following
+   the month of treatment. Late submissions may be rejected.
+
+---
+
+## What Is NOT Covered
+
+- First-class train fares
+- Fuel costs claimed separately from the per-km rate
+- Parking fees (unless explicitly approved in your Verfügung)
+- Transport to appointments not listed in the IV/EL decision
+- Travel outside Switzerland (unless approved in advance)
+- Meals purchased during travel (these are covered under EL Mahlzeiten, not Form 5050)
+
+---
+
+## Meal Expenses (EL — Ergänzungsleistungen)
+
+Meal costs for a disabled person at an approved day structure or care facility are
+reimbursed under EL, not IV transport. They are tracked separately in CareConnect
+under the **Meal** category and submitted on the relevant EL claim form, not Form 5050.
+
+---
+
+## Submission Process
+
+1. Collect all receipts for the month.
+2. Use CareConnect to upload and log each receipt — the agent assembles each Form 5050 row.
+3. Print or export the completed Form 5050 from the app (or your SVA office portal).
+4. Attach original receipts and submit to your kantonal SVA Durchführungsstelle
+   — by post or via the SVA online portal if available in your canton.
+
+---
+
+## Contact
+
+For questions about your specific Verfügung, reimbursement rates, or submission
+deadlines, contact your kantonal SVA Durchführungsstelle directly. Contact details
+for all cantons: [www.ahv-iv.ch](https://www.ahv-iv.ch)

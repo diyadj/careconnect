@@ -1,16 +1,42 @@
-# CareConnect — Prototype 1
+# CareConnect
 
-> An agentic AI assistant that helps families manage disability care admin.
+> An agentic AI assistant that helps families in the Swiss IV/EL disability
+> benefits system manage care administration — invoice logging, transport
+> scheduling, and SVA Form 5050 submission.
 
 Built as a hybrid system:
 
 | Component | Responsibility |
-|-----------|---------------|
-| IBM watsonx Orchestrate | Invoice matching and submission (Use Case 1) |
-| Python + Claude API | Mileage check-ins and Google Sheets logging (Use Case 2) |
-| FastAPI + React | Backend bridge and frontend UI |
+| --- | --- |
+| IBM watsonx Orchestrate | Invoice extraction agent, email agent, help agent |
+| FastAPI | Backend API bridge — auth, data persistence, WXO proxy |
+| React + Vite | Frontend UI |
+| Twilio | Automated phone cancellation of TixiTaxi rides |
 
-Annual schedule setup supports invoice validation context and demo-friendly reset.
+---
+
+## What It Does
+
+**Invoice Submission** — Upload a transport or meal receipt (photo or PDF).
+The WXO invoice extraction agent reads the receipt, classifies the transport
+type (OV / Privatauto / Taxi), asks for the appointment reason and provider,
+then assembles a validated SVA Form 5050 row for approval.
+
+**Ride Planning** — Create and manage planned transport appointments. Send
+a formatted ride list to TixiTaxi by email via the WXO email agent, or cancel
+a specific ride by triggering an automated Twilio phone call to the TixiTaxi
+cancellation line.
+
+**Invoice Records** — View all logged invoices and planned rides in one
+combined list. Filter by category (Transport / Meal), download original
+receipts, and edit or delete records.
+
+**Profile** — Store parent and child details (name, AHV number, invoice
+address) and account credentials used across the app.
+
+**Help & Guidance** — Conversational chat agent (backed by WXO) that answers
+questions about SVA reimbursement rules, Form 5050, TixiTaxi, and how to use
+CareConnect. Grounded in a knowledge base of app guides and IV/EL documentation.
 
 ---
 
@@ -18,30 +44,50 @@ Annual schedule setup supports invoice validation context and demo-friendly rese
 
 ```text
 careconnect/
+├── adk-projects/
+│   ├── invoice_extraction_agent/      # WXO ADK agent — receipt reading & Form 5050 assembly
+│   │   ├── agent.yaml
+│   │   ├── tools.py
+│   │   ├── models.py
+│   │   └── README.md
+│   └── help_agent/                    # WXO ADK agent — conversational help & guidance
+│       ├── agent.yaml
+│       ├── README.md
+│       └── knowledge_base/
+│           ├── app_user_guide.md
+│           ├── sva_transport_rules.md
+│           ├── iv_el_faq.md
+│           └── tixitaxi_guide.md
 ├── backend/
-│   ├── main.py                    # FastAPI app entry point
+│   ├── main.py                        # FastAPI app, CORS, router registration
 │   ├── routes/
-│   │   ├── invoice.py             # UC1: calls watsonx Orchestrate agent
-│   │   ├── mileage.py             # UC2: weekly check-in and mileage log endpoints
-│   │   └── schedule.py            # Annual schedule setup, update, send, and reset
-│   ├── agents/
-│   │   └── mileage_agent.py       # Claude-powered trip report parser
-│   ├── tools/
-│   │   └── sheets_updater.py      # Writes parsed data to Google Sheets
+│   │   ├── invoice.py                 # Receipt upload, WXO thread management, approval flow
+│   │   ├── rides.py                   # Ride CRUD, TixiTaxi email, Twilio cancellation
+│   │   ├── invoice_db.py              # Invoice records database and file serving
+│   │   ├── profile.py                 # User/child profile read and update
+│   │   ├── auth.py                    # Username/password login
+│   │   └── help.py                    # Help agent chat session management
+│   ├── data/
+│   │   ├── invoice_db.json            # Invoice records (auto-created)
+│   │   ├── rides.json                 # Planned rides (auto-created)
+│   │   ├── profile.json               # User profile (auto-created)
+│   │   └── invoice_uploads/           # Uploaded receipt files (auto-created)
 │   ├── requirements.txt
-│   └── .env.example               # Copy this to .env and fill in your keys
+│   └── .env                           # Credentials — see Environment Variables below
 └── frontend/
     ├── src/
     │   ├── pages/
-    │   │   ├── InvoicePage.jsx    # UC1 upload and approval UI
-    │   │   ├── MileagePage.jsx    # UC2 weekly check-in UI
-    │   │   └── SchedulePage.jsx   # Annual schedule setup and reset-for-demo UI
+    │   │   ├── InvoicePage.jsx        # Help & Guidance chat UI (home route)
+    │   │   ├── RidePlanningPage.jsx   # Ride management and TixiTaxi coordination
+    │   │   ├── InvoiceDatabasePage.jsx # Invoice records list
+    │   │   ├── ProfilePage.jsx        # Profile editor
+    │   │   └── LoginPage.jsx          # Login screen
     │   ├── components/
-    │   │   └── StatusCard.jsx     # Reusable status feedback component
+    │   │   └── StatusCard.jsx         # Reusable status feedback component
     │   ├── api/
-    │   │   └── client.js          # Axios instance pointing to backend
-    │   ├── App.jsx                # Routing and nav
-    │   └── main.jsx               # React entry point
+    │   │   └── client.js              # Axios instance pointing to backend
+    │   ├── App.jsx                    # Routing and nav shell
+    │   └── main.jsx                   # React entry point
     ├── index.html
     ├── package.json
     └── vite.config.js
@@ -65,105 +111,189 @@ cd backend
 python -m venv venv
 source venv/bin/activate      # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env          # then open .env and fill in your keys
+```
+
+Create `backend/.env` (see **Environment Variables** below), then:
+
+```bash
 uvicorn main:app --reload
 ```
 
-API runs at `http://localhost:8000` — explore all endpoints at `http://localhost:8000/docs`.
-
-Open `.env` and add:
-- watsonx Orchestrate API key, instance ID, and agent ID
-- Anthropic API key (from console.anthropic.com)
-- Google Sheet ID (from the sheet URL)
-- Path to your downloaded Google service account credentials JSON
+API runs at `http://localhost:8000`.
+Interactive docs at `http://localhost:8000/docs`.
 
 ### 3. Frontend
 
 ```bash
-cd ../frontend
+cd frontend
 npm install
 npm run dev
 ```
 
 Frontend runs at `http://localhost:5173`.
 
----
-
-## Google Sheets Setup
-
-1. Go to Google Cloud Console and create a new project
-2. Enable the **Google Sheets API** for that project
-3. Create a **Service Account** and download the JSON credentials file
-4. Place the JSON file in `backend/` and set `GOOGLE_CREDENTIALS_PATH` in your `.env`
-5. Create a Google Sheet called **"CareConnect Mileage Log"**
-6. Add a tab named **"Mileage Log"** with these headers in row 1:
+### 4. Default login
 
 ```
-Week | Normal Schedule | Sick Days | Extra KM | Extra Trip Notes | Notes
+Username: anna.mueller
+Password: careconnect123
 ```
 
-7. Share the sheet with the service account email found in your credentials JSON
+Change these in **Profile** after first login.
 
 ---
 
-## watsonx Orchestrate Setup (UC1)
+## Environment Variables
 
-1. Sign up at [ibm.com/watsonx/orchestrate](https://ibm.com/watsonx/orchestrate)
-2. Build the invoice matching agentic workflow in the wxO builder
-3. Deploy the agent and copy the **Agent ID** from the Deploy tab
-4. Copy your **instance ID** and **API key** from the IBM Cloud resource page
-5. Paste all three into your `.env` file
+Create `backend/.env` with the following keys:
+
+```env
+# --- IBM watsonx Orchestrate ---
+WXO_API_KEY=           # API key from IBM Cloud resource page
+WXO_INSTANCE_ID=       # WXO instance ID from IBM Cloud
+WXO_INVOICE_AGENT_ID=  # Agent ID for the invoice extraction agent
+WXO_EMAIL_AGENT_ID=    # Agent ID for the TixiTaxi email agent
+WXO_HELP_AGENT_ID=     # Agent ID for the help & guidance agent
+
+# Authentication mode — one of: mcsp | mcsp_v1 | mcsp_v2 | auto
+WXO_AUTH_TYPE=mcsp
+
+# --- Twilio (ride cancellation calls) ---
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_FROM_NUMBER=    # Your Twilio phone number in E.164 format (+41...)
+
+# Set to "true" to skip real Twilio calls during development
+MOCK_CALLS=false
+
+# --- TixiTaxi ---
+TAXI_EMAIL=            # Email address to send ride lists to
+
+# --- CORS ---
+# Comma-separated list of allowed frontend origins
+CORS_ORIGINS=http://localhost:5173,http://localhost:5174
+```
 
 ---
 
-## API Endpoints
+## watsonx Orchestrate Setup
 
-### Invoice (Use Case 1)
+### Invoice extraction agent
+
+Deploy the ADK agent from `adk-projects/invoice_extraction_agent/`:
+
+```bash
+cd adk-projects/invoice_extraction_agent
+orchestrate env activate <your-env-name>
+orchestrate tools import -f tools.py
+orchestrate agents import -f agent.yaml
+```
+
+Copy the agent ID from the WXO UI and set `WXO_INVOICE_AGENT_ID` in `.env`.
+
+### Help agent
+
+The help agent requires a knowledge base created in the WXO UI first.
+See `adk-projects/help_agent/README.md` for the full two-phase deployment guide.
+
+```bash
+cd adk-projects/help_agent
+orchestrate agents import -f agent.yaml
+```
+
+Copy the agent ID and set `WXO_HELP_AGENT_ID` in `.env`.
+
+### Email agent (TixiTaxi)
+
+Build or import the email agent in the WXO UI. Set `WXO_EMAIL_AGENT_ID` in `.env`.
+
+---
+
+## API Reference
+
+### Invoice
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/invoice/upload` | Upload meal and taxi invoice files, create local session payload |
-| `POST` | `/api/invoice/start` | Start watsonx thread |
-| `POST` | `/api/invoice/approve` | Send approval or rejection back to the agent |
-| `POST` | `/api/invoice/message` | Continue invoice thread with message and optional file attachments |
-| `GET` | `/api/invoice/messages/{session_id}` | Poll invoice thread messages and latest actionable prompt |
+| --- | --- | --- |
+| `POST` | `/api/invoice/upload` | Upload receipt files into the session |
+| `POST` | `/api/invoice/start` | Upload files to WXO S3 and start the extraction thread |
+| `POST` | `/api/invoice/approve` | Send user approval or rejection back to the agent |
+| `POST` | `/api/invoice/message` | Continue thread with a message and optional files |
+| `GET` | `/api/invoice/messages/{session_id}` | Poll thread for latest agent prompt |
 
-### Mileage (Use Case 2)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/mileage/checkin` | Submit weekly trip report, logs to Google Sheets |
-| `GET` | `/api/mileage/summary` | Get yearly mileage summary (placeholder) |
-
-### Annual Schedule
+### Ride Planning
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/schedule/setup` | Create annual schedule for a year |
-| `GET` | `/api/schedule/current?year=YYYY` | Read current schedule for a year |
-| `PATCH` | `/api/schedule/update` | Update existing annual schedule |
-| `POST` | `/api/schedule/send` | Send schedule PDF or email (mocked) |
-| `POST` | `/api/schedule/reset` | Reset yearly schedule for clean demo reruns |
+| --- | --- | --- |
+| `GET` | `/api/rides` | List rides for a year |
+| `POST` | `/api/rides` | Create a planned ride |
+| `PATCH` | `/api/rides/{ride_id}` | Update ride details |
+| `DELETE` | `/api/rides/{ride_id}` | Delete a ride |
+| `POST` | `/api/rides/send-tixi-email` | Format and email ride list to TixiTaxi via WXO |
+| `POST` | `/api/rides/cancel-ride` | Trigger Twilio call to TixiTaxi cancellation line |
+| `GET` | `/api/rides/check-twilio` | Verify Twilio credentials are configured |
+
+### Invoice Records
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/invoice-db` | List all invoices and rides for a year |
+| `POST` | `/api/invoice-db/upload` | Upload invoice file with metadata |
+| `GET` | `/api/invoice-db/file/{inv_id}` | Download a stored receipt file |
+| `PATCH` | `/api/invoice-db/{inv_id}` | Update invoice record |
+| `DELETE` | `/api/invoice-db/{inv_id}` | Delete invoice record |
+
+### Profile
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/profile` | Read profile (password masked) |
+| `PUT` | `/api/profile` | Update profile fields |
+
+### Auth
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/api/auth/login` | Username/password login |
+
+### Help
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/api/help/start` | Initialise a help chat session |
+| `POST` | `/api/help/message` | Send message to the help agent |
+| `GET` | `/api/help/messages/{session_id}` | Get full conversation history |
 
 ### General
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
+| --- | --- | --- |
 | `GET` | `/` | Health check |
 
 ---
 
-## Demo Notes
+## Data Storage
 
-- The invoice start prompt is intentionally fixed to: `I want to match and submit my invoices`
-- Invoice chat polling deduplicates near-identical assistant prompts to reduce repeated upload asks in the UI
-- On the Annual Schedule page, use **Reset for Demo** to clear the current year and start from scratch
+All data is persisted as JSON files under `backend/data/` (created automatically
+on first write). Receipt files are stored under `backend/data/invoice_uploads/`.
+No external database is required.
+
+| File | Contents |
+| --- | --- |
+| `data/profile.json` | Parent/child profile and account credentials |
+| `data/rides.json` | Planned rides keyed by year |
+| `data/invoice_db.json` | Invoice records keyed by year |
+| `data/invoice_uploads/` | Uploaded receipt image and PDF files |
 
 ---
 
-## Coming in Prototype 2
+## SVA Business Rules (enforced by the invoice agent)
 
-- Real Gmail inbox monitoring (currently simulated via manual PDF upload)
-- Automated weekly scheduler for the mileage check-in
-- Supervisor agent routing between UC1 and UC2
-- User authentication
+| Transport type | Rule |
+| --- | --- |
+| OV (public transport) | 2nd class fare only; use the discounted price if half-fare applies |
+| Privatauto (private car) | CHF 0.70 per km; requires km count from the user |
+| Taxi / Fahrdienst | Receipt amount used directly |
+
+Only one cost column is filled per Form 5050 row. Total equals that column.
+Meals are tracked under EL (not Form 5050) in the separate Meal category.
