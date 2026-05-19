@@ -1,0 +1,110 @@
+CareConnect – User Testing, Design Reflection, Risk Analysis, and Outlook
+==========================================================================
+
+USER TESTING AND FINDINGS
+--------------------------
+
+Research Phase Interviews
+Five stakeholder interviews were conducted across the research phase:
+- Two legal guardians managing IV claims for a family member
+- One TixiTaxi representative (operational and booking perspective)
+- One staff member from a disability support organisation
+- One SVA case manager
+
+These interviews shaped the problem framing, service blueprint, and agent design before any prototype was built. Prototype testing was conducted internally due to the sensitive nature of the user group (families in active IV/EL processes) and timeline constraints of the project.
+
+Finding 1 — The submission path is not email, it is the SVA portal
+The original prototype concept included an agent that could submit Form 5050 directly to the SVA on the user's behalf via email. The SVA case manager interview made clear that families submit through the cantonal SVA portal, not by email, and that any automated submission to SVA would face significant regulatory and trust barriers. This invalidated the submission agent design entirely and drove a pivot: CareConnect would produce submission-ready documentation that the user submits themselves. This was the single most important design-redirecting finding of the research phase.
+
+Finding 2 — The waiting and matching problem is the highest-friction point
+Multiple participants identified that the most stressful part of the monthly process was not filling the form — it was tracking whether all required documents had arrived and correctly linking them to the right trips. The mental load of holding two incomplete invoice threads in memory across several weeks was described as more burdensome than the form-filling itself. This directly shaped the Invoice Records page design, the meal-receipt matching feature, and the unmatched invoice flag.
+
+Finding 3 — Users need to stay visibly in control of outbound actions
+When participants were told that an agent could send emails or make calls on their behalf automatically, trust broke down immediately. The specific concern was: how do I know what was sent? Past experience with IV rejections had made guardians cautious about anything leaving their hands without review. Trust held when the agent was described as preparing actions and the user triggering them explicitly. This directly shaped the confirmation-required design pattern applied to every outbound action in the system.
+
+Where User Trust Broke Down
+Trust broke down specifically around autonomous outbound actions — sending emails, placing calls, or submitting anything without explicit user review. The framing that resolved this was distinguishing between agent-as-preparer and human-as-approver. When the agent was positioned as reducing the work of construction rather than replacing the act of authorisation, trust was restored.
+
+Prototype Adaptations Based on Findings
+- Every outbound action requires explicit user confirmation: the Email Agent only sends when the user clicks "Book TixiTaxi Rides". The Twilio agent only calls when the user clicks "Cancel Ride". Nothing is triggered automatically.
+- A review screen is shown before any form row is saved to records.
+- The submission step (SVA portal) was removed from the agent's scope entirely; the agent generates a ready-to-submit document instead.
+- The Invoice Records page was redesigned to surface matching status visibly, so users can see at a glance whether their monthly documentation is complete.
+
+DESIGN PROCESS REFLECTION
+--------------------------
+
+What Turned Out to Be Right: Running the Service Blueprint First
+The decision to map the as-is process in full detail — across customer-facing steps, external provider interactions, and backstage activities — before touching the prototype was the most valuable methodological decision of the project. The blueprint exercise made visible that the primary friction in the existing process was not any single step but the handoffs between steps: between TixiTaxi and the guardian, between the day centre and the guardian, between documentation preparation and portal submission. Without this exercise, the prototype would have been built around making individual steps easier, and would have missed the coordination and matching problem that was actually causing the most burden. A better form filler would not have solved the right problem.
+
+What Would Be Done Differently: Narrow Scope, Sequential Build
+The prototype attempted to build four agents in parallel — invoice extraction, help, email, and Twilio cancellation — simultaneously. Each received less focused development time than it deserved. The Invoice Extraction Agent in particular would have benefited significantly from more iteration on prompt design and edge case handling: how to handle partially readable receipts, receipts in French or Italian, ambiguous transport type descriptions, and handwritten documents. If starting again, the approach would be to build one agent and one user flow end to end — demonstrating a complete, polished loop — and then expand to additional agents once the core was solid. Breadth was chosen over depth in a context where depth would have produced a more compelling result.
+
+RISK ANALYSIS
+--------------
+
+Technical Risks
+
+Risk 1 — Hallucination in receipt extraction
+The vision model may read a receipt incorrectly: misread a date, confuse a total with a subtotal, or misidentify a transport provider. A wrong date or amount in a Form 5050 row could cause a rejected submission.
+Mitigation: The extraction agent presents all extracted values to the user for review before the row is saved. The user confirms or corrects every field. The agent flags uncertainty by asking the user to verify rather than silently guessing.
+
+Risk 2 — Incorrect transport type classification
+A trip taken by private car could be misclassified as public transport, causing an incorrect rate to be applied (CHF 0.70/km vs. actual ticket price). A TixiTaxi ride could be classified as private car, affecting the correct column on Form 5050.
+Mitigation: The classification step is a separate agent action with explicit rules. The transport type is shown to the user before the row is assembled. The user can correct it before saving.
+
+Risk 3 — Session state loss in watsonx
+Multi-turn conversations with the watsonx REST API require careful session ID management. If a session ID is lost or expires mid-conversation, the agent loses context and the user must restart. This is a known fragility in the current implementation.
+Mitigation: The session ID is persisted on the frontend between messages. Error handling in the backend catches session failures and prompts the user to start a new session rather than producing a silent failure.
+
+Ethical Risks
+
+Risk 1 — Health data privacy
+Receipts uploaded to CareConnect contain patient names, AHV numbers, treatment locations, appointment types, and financial amounts. This is sensitive health and personal data. Mishandling it — through insecure storage, unencrypted transmission, or third-party data exposure — constitutes a serious legal and ethical breach under Swiss data protection law (nDSG) and GDPR where applicable.
+Mitigation in prototype: No receipt content is stored beyond the extraction session in the current implementation. The extracted fields (date, amount, transport type) are stored but not the raw receipt. No PII is transmitted in raw form to any external service. The profile data (name, AHV number, phone) is stored locally in a JSON file, not in any cloud service.
+Limitation: The current mitigation is prototype-grade. A production deployment would require encrypted storage, explicit data retention policies, and a formal privacy assessment.
+
+Risk 2 — Automation-induced submission errors
+If a user trusts the agent's output without reviewing it and the agent made a classification or extraction error, the user may submit a Form 5050 with incorrect entries. Under SVA rules, incorrect claims can result in clawback demands, not merely rejection. A user who relied on the agent and submitted without review could be financially and administratively worse off than if they had filled the form manually.
+Mitigation: The review step before saving any row is mandatory, not optional. The UI is designed to surface extracted values clearly, not hide them behind a confirmation button. The Help Agent explicitly instructs users to verify entries before submission.
+
+Risk 3 — Digital exclusion
+Families who are less tech-confident, who use assistive technology, or who primarily communicate in languages other than German or English may find the interface inaccessible. For these users, CareConnect could increase rather than reduce the burden if onboarding support is not available.
+Mitigation in design: The interface was built to be as minimal as possible — upload a file, answer two questions, review a row. The Help Agent is conversational and avoids technical jargon. German and English are both supported.
+Limitation: Italian and Romansh are not supported. Accessibility testing was not conducted within the project scope.
+
+CRITICAL REFLECTION ON AGENTIC AI
+------------------------------------
+
+Position: CareConnect genuinely reduces complexity for the user, not merely shifts it — but only if the human-in-the-loop design principle is maintained.
+
+Argument: The administrative burden in the IV transport domain is not just procedural complexity — it is cognitive load, stateful tracking, and rule-knowledge requirements distributed unevenly onto people who are already carrying significant caring responsibilities. An agentic system can absorb the data extraction, classification, matching, and assembly work that currently sits in the guardian's head. That is a genuine reduction, not a reallocation.
+
+The risk specific to agentic systems in high-stakes domains is what might be called automation-induced complacency: the agent did it, so it must be correct. If a user stops reviewing what the agent produces because they trust it, and the agent makes an error, the user is now exposed to consequences they would have caught had they been doing the work manually. CareConnect is designed to resist this specifically: every extracted value is visible, every outbound action is user-triggered, and the submission step remains entirely in the user's hands.
+
+If that design principle is compromised in future development — if confirmations are removed to reduce friction, or if outbound actions are automated to improve efficiency — then the complexity does not reduce. It shifts from visible, manageable work to hidden, trust-dependent risk. The quality of an agentic system in this domain is therefore not just a function of its accuracy. It is a function of how well it keeps the human informed and in control at every consequential step.
+
+OUTLOOK AND PRODUCTION PATH
+-----------------------------
+
+Next Development Steps
+
+Step 1 — SVA Form 5050 PDF generation pipeline
+The current system assembles validated form rows and generates a printable HTML document. A production-ready implementation would generate a properly structured PDF that matches the exact SVA Form 5050 layout, is digitally signable, and can be directly uploaded to the SVA portal without reformatting. This is the most direct improvement to the submission experience.
+
+Step 2 — Persistent, session-independent data storage
+The current JSON file storage means data does not persist across devices and is lost if the server resets. A production system requires a proper database with user authentication, encrypted storage, and explicit data retention controls. This is also the prerequisite for any multi-user deployment.
+
+Step 3 — Privacy and data handling layer
+Before any real user data touches the system, a formal privacy architecture is required: AHV numbers and health data encrypted at rest, clear retention and deletion policies, user consent flows, and a privacy assessment against Swiss nDSG requirements. This is not optional for a system handling sensitive health and insurance data.
+
+Obstacles to Production
+
+Technical obstacle: Receipt format diversity
+Llama 3.2 Vision performs well on clean, digital receipts. Swiss receipt diversity — handwritten notes from smaller providers, scanned postal invoices from cantonal day centres, bilingual documents mixing German and French, faded till receipts — represents a significant real-world accuracy challenge. Getting extraction reliability high enough for production use would require substantial prompt engineering, fine-tuning or few-shot examples, and a systematic evaluation dataset.
+
+Regulatory obstacle: Swiss data protection and cantonal IV governance
+Any system handling AHV numbers and medical appointment data falls under the Swiss nDSG (revised Data Protection Act) and potentially under cantonal IV data governance rules, which are not standardised across the 26 cantons. Achieving compliance would require legal review, a formal data protection impact assessment, and potentially formal recognition or approval from SVA St. Gallen or equivalent bodies before the system could be recommended to claimants.
+
+Adoption obstacle: Trust and onboarding
+The user group is already overwhelmed. A new digital tool requires onboarding effort, and onboarding effort competes with the time pressure and emotional load the tool is meant to reduce. Trust in a new system cannot be claimed — it must be earned through a track record. The first users of any production deployment would be taking a risk that later users would not. A phased pilot with close support, clear feedback channels, and rapid iteration on issues would be required to build the trust base that enables broader adoption.

@@ -1,0 +1,79 @@
+CareConnect – Technical Architecture
+======================================
+
+SYSTEM OVERVIEW
+----------------
+CareConnect is a hybrid system combining an IBM watsonx ADK multi-agent backend, a FastAPI REST API layer, and a React/Vite frontend. The architecture is flat rather than hierarchical: the frontend routes to individual agents based on user context, rather than a top-level orchestrator dynamically dispatching to sub-agents. This was a deliberate simplicity choice given the project scope and timeline.
+
+All data is persisted as JSON files on the server (backend/data/). There is no external database. This decision reduces infrastructure dependencies for a prototype but would need to be replaced with a proper data layer for any production deployment.
+
+THE AGENTS
+-----------
+
+1. Invoice Extraction Agent
+Purpose: Reads transport receipts and assembles validated SVA Form 5050 rows.
+Model: watsonx / meta-llama / llama-3-2-90b-vision-instruct (90B parameter, vision-capable)
+Why this model: Llama 3.2 Vision is well-suited to reading structured documents — receipts, invoices, scanned letters — and extracting specific fields. The 90B scale provides the accuracy needed for real-world receipt variety including Swiss-German text, mixed formats, and variable layouts.
+Tools: extract_invoice_fields, classify_transport_type, assemble_form_row
+Workflow:
+  Step 1 — Extract: read the uploaded receipt image or PDF and identify travel date, CHF amount, and transport type
+  Step 2 — Classify: assign the transport type to the correct SVA category (OV / Privatauto / Taxi-Other)
+  Step 3 — Ask: prompt the user for appointment reason and care provider address (fields not inferable from receipts)
+  Step 4 — Assemble: construct a validated Form 5050 row with correct column assignment and totals
+  Step 5 — Confirm: return the row for user review before saving
+SVA rules enforced: 2nd class only for public transport; CHF 0.70/km for private car (no receipt required); one cost column per row; actual price paid when half-fare or GA applies; never guess appointment reason or address.
+
+2. Help and Guidance Agent
+Purpose: Answers user questions about SVA transport reimbursement rules, IV/EL eligibility, TixiTaxi coordination, and CareConnect app usage.
+Model: watsonx / meta-llama / llama-3-1-70b-instruct (70B instruction-tuned)
+Why this model: The task is conversational and knowledge-retrieval based, not vision or tool-call intensive. The 70B instruction-tuned model handles multi-turn dialogue, language switching (German/English), and grounded answer generation reliably.
+Tools: None (knowledge-grounded conversation, no external tool calls)
+Knowledge base: Four structured text files covering app usage, SVA Form 5050 rules, IV/EL system basics, and TixiTaxi coordination — plus five additional files covering concept, personas, service blueprint, competitive analysis, architecture, and design reflection.
+Behaviour: Responds in the user's language. Uses numbered steps for workflows. Cites forms and rules by name. Defers to the cantonal SVA office for questions it cannot answer from the knowledge base. Never invents CHF amounts, deadlines, or regulatory article numbers.
+
+3. Email Agent (Ride Schedule)
+Purpose: Composes and sends the structured TixiTaxi ride booking email when the user triggers it from the Ride Planning page.
+Platform: IBM watsonx Orchestrate via REST API
+Trigger: User clicks "Book TixiTaxi Rides" on the ride planning page
+Behaviour: Receives a pre-formatted table of upcoming TixiTaxi rides from the backend, composes a polite booking request addressed to the TixiTaxi team (using the guardian's name and phone number from their profile), and sends it via Outlook to the pre-configured TixiTaxi address. The user must explicitly click send — the agent does not act autonomously.
+Email template: Subject line "TixiTaxi Booking Request", opening with a direct booking statement, ride list in tabular format, a call-me line with the guardian's phone number, and a sign-off using the guardian's name from profile.
+
+4. Twilio Cancellation Agent
+Purpose: Places an outbound voice call to TixiTaxi's cancellation line in Swiss German when a ride is cancelled from the frontend.
+Platform: Twilio text-to-speech, Swiss German locale
+Trigger: User clicks "Cancel Ride" on an upcoming TixiTaxi ride in the Ride Planning page
+Behaviour: Constructs a spoken cancellation message from the ride details (date, time, origin, destination) and places an automated call to the TixiTaxi cancellation line. The call is placed on the guardian's behalf — they do not need to be on the phone.
+Status: Built and functionally implemented. Not live-tested in production due to the absence of a registered Swiss sender number in Twilio (exchange student constraint with no local group support). Falls back to a manual call instruction if the automated call fails.
+Why Twilio and not email: TixiTaxi currently receives cancellations by phone. The business process requires a phone call. Automating this without requiring the user to make the call was only feasible through a programmatic voice solution. Twilio's Swiss German TTS was the only realistic option within the project constraints.
+
+ORCHESTRATION MODEL
+--------------------
+CareConnect uses a flat routing architecture, not a hierarchical multi-agent orchestration model.
+
+The FastAPI backend routes each request to the appropriate agent based on which page or action triggered it:
+- The invoice upload flow routes to the Invoice Extraction Agent
+- The help chat interface routes to the Help and Guidance Agent
+- The "send ride schedule" action routes to the Email Agent via watsonx Orchestrate REST
+- The "cancel ride" action triggers the Twilio call via the backend cancellation endpoint
+
+There is no top-level orchestrator agent that dynamically decides which sub-agents to invoke. Each agent is independent and addresses a specific user task. This was a deliberate choice: a dynamic orchestration model adds coordination complexity that was not justified by the prototype's scope, and flat routing is easier to debug, test, and reason about within the project timeline.
+
+TECHNOLOGY STACK
+-----------------
+- IBM watsonx ADK: Agent definition, tool calling, conversation session management
+- IBM watsonx Orchestrate REST API: Email agent integration
+- meta-llama/llama-3-2-90b-vision-instruct: Receipt extraction (vision-capable)
+- meta-llama/llama-3-1-70b-instruct: Help agent conversation
+- FastAPI (Python): Backend REST API layer, data persistence, agent proxying
+- React + Vite: Frontend single-page application
+- Twilio: Outbound voice call for ride cancellation (Swiss German TTS)
+- JSON file storage: Persistent data (rides, invoices, profile) — no external database
+
+Why watsonx: watsonx was the designated course platform with HSG student access, providing a practical starting point. It also offered Llama 3.2 Vision, which is well-suited to structured document reading. The ADK provides clean tool definitions and the REST API integrates into FastAPI straightforwardly once the session model is understood.
+
+SYSTEM CONSTRAINTS AND SIMPLIFICATIONS
+----------------------------------------
+- No real-time SVA portal integration: CareConnect produces submission-ready documentation; the user submits to SVA themselves through the cantonal portal. API access to government systems was out of scope.
+- No encrypted storage layer: Receipt data and profile data are stored in plain JSON files. This is acceptable for a prototype but is a critical gap before any real user data could be handled.
+- No multi-tenancy: The system currently supports a single user profile. A production system would require user authentication, data isolation, and session management across multiple accounts.
+- No cantonal variation handling: SVA rules vary slightly by canton. The system applies generalised rules based on SVA St. Gallen (the context of the prototype).

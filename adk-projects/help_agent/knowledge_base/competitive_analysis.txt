@@ -1,0 +1,55 @@
+CareConnect – Competitive and Environmental Analysis
+=====================================================
+
+EXISTING SOLUTIONS EXAMINED
+-----------------------------
+During the research phase, the following existing tools and approaches were examined to understand the current landscape for IV transport reimbursement administration:
+
+1. The SVA Portal (cantonal SVA Durchführungsstellen)
+The official submission channel for Form 5050 and related IV/EL claims. Accepts digital file uploads and form submissions. Does not provide any help filling in the form, does not validate entries before submission, and does not explain why a submission was rejected. The portal assumes the user already knows what to submit and how to structure it correctly. It is the endpoint for the process, not a tool for completing it.
+
+2. Excel Spreadsheets
+Every interview participant was using a personal Excel spreadsheet to track their monthly transport rides. These were self-built, varying in structure, and required manual updating after every ride. They provided no intelligence, no automatic calculation of SVA-specific rates (e.g. CHF 0.70/km for private car), no classification logic, and no connection to the receipts themselves. They represented a workaround in the absence of purpose-built tooling, not a solution.
+
+3. General Receipt Scanning Applications (Adobe Scan, iOS Files, Google PhotoScan)
+These apps photograph and digitise documents but produce image files or PDFs, not structured data. They do not extract fields, do not understand SVA form structure, and have no awareness of what the extracted data means in the context of IV reimbursement. A scanned receipt is still a scanned receipt. The user must still transfer the information manually from the scan into a form row.
+
+4. No Purpose-Built IV Transport Reimbursement Tool
+No dedicated tool was identified — in Switzerland or comparably structured disability systems — that specifically addresses the IV transport documentation workflow end to end. The problem appears to be too narrow for large platforms and too complex for simple form builders.
+
+WHY EXISTING SOLUTIONS ARE INSUFFICIENT
+-----------------------------------------
+Each existing approach fails at a different point in the process:
+
+- The SVA portal handles submission but provides no pre-submission support. It does not help users understand eligibility, classify transport, or fill the form correctly. It provides feedback only through rejection, weeks later.
+
+- Excel handles tracking but requires the user to understand and manually apply SVA rules: which column to use, which rate applies, how to handle half-fare, how to separate meal from transport costs. These are not trivial decisions and they are made incorrectly often enough to cause regular rejections.
+
+- Receipt scanners eliminate physical paper but not cognitive work. The user still needs to read the scanned document, understand what the fields mean, find the right row on their form, and type it in correctly.
+
+- None of the tools address the coordination problem: the waiting and matching of invoices across multiple providers (TixiTaxi and the day centre) before any submission can happen.
+
+WHAT CARECONNECT ADDS THAT DOES NOT EXIST ELSEWHERE
+------------------------------------------------------
+CareConnect fills the gap between receiving a receipt and having a correctly structured, submission-ready Form 5050 row. Specifically:
+
+1. Receipt-to-form-row automation
+No existing tool reads a transport receipt and produces a validated SVA Form 5050 row with correct column assignment, rate application, and field population. CareConnect does this through the Invoice Extraction Agent.
+
+2. SVA rule enforcement at the point of data entry
+The classification logic — which transport type maps to which SVA column, whether a half-fare discount changes the claimable amount, that only 2nd class public transport fares are eligible — is built into the agent. The user does not need to know these rules to apply them correctly.
+
+3. Multi-invoice matching and status tracking
+No existing tool links TixiTaxi invoices to meal invoices from the day centre and shows the guardian whether both are present and matched for the current month. CareConnect does this in the Invoice Records view.
+
+4. Ride schedule coordination with TixiTaxi
+No tool currently automates the creation and sending of the annual transport schedule to TixiTaxi, or the cancellation of individual rides. CareConnect handles both through the Email Agent and the Twilio Cancellation Agent.
+
+5. Contextual eligibility guidance
+None of the existing tools provide answers to eligibility questions. A user who is unsure whether a specific trip qualifies, or how to categorise an unusual transport type, has no in-system resource. The Help and Guidance Agent fills this gap directly.
+
+ENVIRONMENTAL CONTEXT
+----------------------
+The Swiss IV/EL system is administered across 26 cantonal SVA Durchführungsstellen, each with some variation in process and contact channels. This fragmentation means no single commercial product can serve all cantons with a standardised integration. CareConnect does not integrate directly with any SVA system — it produces submission-ready documentation that users submit themselves through their cantonal portal. This is the correct scope for a prototype: reduce the burden of preparation without requiring regulatory API access to government systems.
+
+The user group — families of children with disabilities — is time-constrained, emotionally loaded, and often managing multiple complex administrative domains simultaneously. The IV transport reimbursement task is one of many recurring obligations. Any tool that adds interface complexity or requires training will face adoption resistance. CareConnect was designed around minimal input: the user provides a receipt and two pieces of context, and the agent handles the rest.

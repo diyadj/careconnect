@@ -285,6 +285,39 @@
       "year": 2026,
       "created_at": "2026-05-19T13:13:11.697274",
       "updated_at": "2026-05-19T13:13:11.697274"
+    },
+    "720fbe9f-2b0a-4c9d-842f-da0a86f3eae2": {
+      "id": "720fbe9f-2b0a-4c9d-842f-da0a86f3eae2",
+      "category": "transport",
+      "transport_type": "public_transport",
+      "date": "2024-03-12",
+      "vendor": "Hauptgasse 5, 3000 Bern",
+      "amount": 24.8,
+      "description": "Business meeting",
+      "filename": "Transport_Receipt_1.pdf",
+      "stored_name": "720fbe9f-2b0a-4c9d-842f-da0a86f3eae2.pdf",
+      "year": 2026,
+      "created_at": "2026-05-19T17:26:32.245465",
+      "updated_at": "2026-05-19T17:26:32.245465"
+    },
+    "a4ae50f0-eb53-44ae-9dae-4082cfffb4f3": {
+      "id": "a4ae50f0-eb53-44ae-9dae-4082cfffb4f3",
+      "category": "meal",
+      "transport_type": "",
+      "date": "2026-05-06",
+      "vendor": "Mueller Anna",
+      "amount": 19.5,
+      "description": "Meal \u00b7 Physiotherapy",
+      "filename": "Meal_Invoice_1.pdf",
+      "stored_name": "a4ae50f0-eb53-44ae-9dae-4082cfffb4f3.pdf",
+      "year": 2026,
+      "created_at": "2026-05-19T17:27:01.169102",
+      "updated_at": "2026-05-19T17:27:01.169102",
+      "match_ref": {
+        "date": "2026-05-06",
+        "description": "Physiotherapy",
+        "vendor": "Physiotherapie am Marktplatz, St. Gallen"
+      }
     }
   }
 }

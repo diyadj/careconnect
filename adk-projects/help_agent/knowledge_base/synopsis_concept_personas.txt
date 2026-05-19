@@ -1,0 +1,47 @@
+CareConnect – Idea Concept, Problem Statement, and Personas
+=============================================================
+
+THE PROBLEM: ADMINISTRATIVE BURDEN ON LEGAL GUARDIANS
+------------------------------------------------------
+Families caring for a child with a disability in the Swiss IV/EL system face a recurring monthly administrative loop that is fragmented, stateful, and entirely manual. Based on stakeholder interviews conducted during the research phase, the monthly process for a legal guardian includes:
+
+- Creating and sending an annual transport schedule to TixiTaxi at the start of each year
+- Tracking month by month which rides actually happened versus which were cancelled
+- Waiting separately for the TixiTaxi transport invoice and the day centre meal invoice to arrive
+- Holding both in memory until both arrive, since neither can be submitted alone
+- Manually filling in SVA Form 5050 with one row per trip: date, destination, treatment reason, transport type, distance, and amount
+- Signing and submitting through the SVA portal
+- Receiving rejections weeks later with no specific explanation of what failed
+
+One interview participant described spending over 80 percent of their total monthly IV admin time on transport documentation alone. The entire process lives across Excel spreadsheets, email inboxes, and memory. There is no system connecting the pieces. The cognitive load is not just about data entry — it is about tracking the state of multiple incomplete things across multiple weeks.
+
+THE CORE IDEA: SHIFTING COGNITIVE WORK FROM USER TO AGENT
+----------------------------------------------------------
+CareConnect is not a digital version of the existing process. A digital form still requires the user to know what to fill in, find the right receipts, and manually enter every trip. The difference is where the work sits.
+
+In CareConnect, the user uploads a receipt. The Invoice Extraction Agent — powered by a vision-capable language model — reads the receipt, extracts the date, amount, and transport type, and asks the user only for the two things it cannot infer: the appointment reason and the care provider address. It then assembles a validated, submission-ready Form 5050 row automatically.
+
+The difference versus digitization is: digitization moves paper to screen. CareConnect moves the data extraction, classification, and assembly work from the user's head and hands to the agent, while keeping the user in control of what actually gets submitted. Every outbound action — sending a ride schedule, submitting a form row, cancelling a ride — requires explicit user confirmation. The agent prepares. The human approves.
+
+This distinction matters because the cognitive burden in the as-is process is not primarily about physical effort. It is about knowing what qualifies, remembering what is missing, matching invoices to trips, and correctly applying SVA rules across many edge cases. That is what the agent takes over.
+
+PERSONAS
+--------
+
+Persona 1: Anna Burkhalter, 42 — Legal Guardian
+Anna is a full-time legal guardian managing all IV and EL administration on behalf of her child. She is not a tech specialist. She is competent with email and basic apps but has no background in formal administration or insurance claims. She relies on support organisations for guidance when rules are unclear.
+
+Anna's biggest pain point is the stateful waiting and matching problem. She cannot submit Form 5050 until both the TixiTaxi invoice and the meal invoice from the day centre have arrived. She has to hold this in her head every month: has the TixiTaxi invoice arrived? Has the meal invoice arrived? Are they for the same trips? If she forgets or mixes something up, a rejection arrives weeks later with no explanation.
+
+What Anna needs from CareConnect: a system that tracks what has arrived, flags what is still missing, tells her when everything is ready, and prepares the form so she only needs to review and confirm rather than construct.
+
+How Anna's persona influenced design: The invoice-matching feature and the Meal Receipt Matches section in the Invoice Records page were built directly for this pain point. The system pairs meal receipts to transport records automatically, surfaces unmatched invoices with a visible flag, and shows Anna exactly which appointments have complete documentation and which do not.
+
+Persona 2: Marco Nussbaumer, 26 — Self-Managing Wheelchair User
+Marco is a wheelchair user who has managed his own IV claims independently since turning 18. He navigates the system without a caregiver or support organisation acting as a buffer. He is more digitally confident than Anna but operates alone, which means every question he has — about eligibility, classification, form rules — he has to answer himself or leave unanswered.
+
+Marco's biggest pain point is the lack of feedback and guidance. He never knows whether what he submitted was correct until a rejection arrives weeks later. He has no one to ask informally. He needs visibility into what qualifies, clear answers to rule questions, and enough confidence in his submissions to trust they will not be rejected on a technicality.
+
+What Marco needs from CareConnect: a conversational agent that can answer eligibility and classification questions clearly, in plain language, without requiring him to interpret SVA documentation himself.
+
+How Marco's persona influenced design: The Help and Guidance Agent was built specifically for this user type. Anna can call a support organisation when she is unsure. Marco typically cannot. The Help Agent is not a nice-to-have feature — it is the primary access point to rule knowledge for users who self-manage without institutional support. Its knowledge base was structured around the questions a user like Marco would actually ask: does this trip qualify, how do I categorise this transport type, what happens if I used my own car, does a meal count.
