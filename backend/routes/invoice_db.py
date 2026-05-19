@@ -382,14 +382,10 @@ async def agent_extract_invoice(
 
     file_bytes = await file.read()
 
-    today_str = datetime.now().strftime("%d %B %Y")
     current_year = datetime.now().year
 
     # Turn 1: text trigger only — agent will ask for the file next
-    run1 = await create_run(
-        f"Today's date is {today_str}. If the year is not printed on the receipt, use {current_year}. I want to submit my transport receipts.",
-        agent_id=agent_id,
-    )
+    run1 = await create_run("I want to submit my transport receipts", agent_id=agent_id)
     thread_id = run1.get("thread_id")
     if not thread_id:
         raise HTTPException(status_code=500, detail="Failed to start invoice session.")
@@ -497,20 +493,72 @@ async def agent_extract_invoice(
     return record
 
 
-async def _wait_for_async_flow(thread_id: str, known_msg_ids: set, timeout: int = 90) -> str:
-    """Poll thread messages until a new substantive assistant message appears."""
+async def _wait_for_async_flow(thread_id: str, known_msg_ids: set, timeout: int = 180, agent_id: str = None) -> str:
+    """Poll thread messages until a new substantive assistant message appears.
+    Auto-accepts WXO document_processing_response review steps so the flow can continue."""
+    from .invoice import get_auth_headers, get_runs_endpoint
+    import httpx as _httpx
+    accepted_dps_ids: set = set()
     deadline = time.time() + timeout
     while time.time() < deadline:
-        await asyncio.sleep(3)
+        await asyncio.sleep(2)
         msgs = await get_thread_messages(thread_id)
         for msg in reversed(msgs):
             if msg.get("role") != "assistant":
                 continue
-            if msg.get("id") in known_msg_ids:
+            msg_id = msg.get("id")
+            if msg_id in known_msg_ids:
                 continue
+
+            content = msg.get("content")
+            if isinstance(content, list):
+                for item in content:
+                    if not isinstance(item, dict):
+                        continue
+                    if item.get("response_type") != "document_processing_response":
+                        continue
+                    activity = item.get("activity_info") or {}
+                    if activity.get("action_status") != "pending":
+                        continue
+                    dps_id = item.get("dps_payload_id", "")
+                    if not dps_id or dps_id in accepted_dps_ids:
+                        continue
+                    accepted_dps_ids.add(dps_id)
+                    print(f"[DOCEXT] Auto-accepting DPS review id={dps_id}")
+                    try:
+                        headers = await get_auth_headers()
+                        acceptance_payload = {
+                            "thread_id": thread_id,
+                            "agent_id": agent_id,
+                            "capture_logs": False,
+                            "message": {"role": "user", "content": ""},
+                            "context": {
+                                "source": "USER",
+                                "data": [{
+                                    "response_type": "user_defined",
+                                    "user_defined": {
+                                        "dps_payload_id": dps_id,
+                                        "action": "accepted",
+                                    },
+                                }],
+                            },
+                        }
+                        async with _httpx.AsyncClient(verify=False) as client:
+                            resp = await client.post(get_runs_endpoint(), json=acceptance_payload, headers=headers)
+                        print(f"[DOCEXT] Acceptance status={resp.status_code} body={resp.text[:200]}")
+                        run_id = resp.json().get("run_id") if resp.status_code in (200, 201, 202) else None
+                        if run_id:
+                            await wait_for_run_completion(run_id)
+                    except Exception as exc:
+                        print(f"[DOCEXT] Acceptance error: {exc}")
+
             text = extract_text_from_message(msg)
-            # Skip the async-flow-started placeholder
-            if "new flow has started" in text.lower():
+            skip_phrases = (
+                "new flow has started",
+                "continuing the flow",
+                "thanks for your input",
+            )
+            if any(p in text.lower() for p in skip_phrases):
                 continue
             if text.strip():
                 return text
@@ -631,12 +679,8 @@ async def meal_extract_invoice(
 
     file_bytes = await file.read()
 
-    today_str_meal = datetime.now().strftime("%d %B %Y")
     current_year_meal = datetime.now().year
-    run1 = await create_run(
-        f"Today's date is {today_str_meal}. If the year is not printed on the receipt, use {current_year_meal}. I want to submit a meal receipt.",
-        agent_id=agent_id,
-    )
+    run1 = await create_run("I want to submit a meal receipt", agent_id=agent_id)
     thread_id = run1.get("thread_id")
     if not thread_id:
         raise HTTPException(status_code=500, detail="Failed to start meal extraction session.")
@@ -652,10 +696,9 @@ async def meal_extract_invoice(
     if run2.get("run_id"):
         await wait_for_run_completion(run2["run_id"])
 
-    # Flow runs async — poll until the result message appears
-    flow_result_text = await _wait_for_async_flow(thread_id, known_ids, timeout=90)
-    print("=== FLOW RESULT TEXT ===")
-    print(repr(flow_result_text))
+    # Flow runs async — auto-accepts DPS document review, then waits for final result
+    flow_result_text = await _wait_for_async_flow(thread_id, known_ids, timeout=180, agent_id=agent_id)
+    print("=== MEAL FLOW RESULT ===", repr(flow_result_text[:400] if flow_result_text else "EMPTY"))
 
     meal_data = _parse_meal_response(flow_result_text) if flow_result_text else None
 

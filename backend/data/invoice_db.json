@@ -103,7 +103,7 @@
       "category": "transport",
       "transport_type": "tixitaxi",
       "date": "2026-04-28",
-      "vendor": "Institut f\u00c3\u00bcr Kinder- und Jugendpsychiatrie, Z\u00c3\u00bcrich",
+      "vendor": "Institut fur Kinder- und Jugendpsychiatrie, Zurich",
       "amount": 92.0,
       "description": "Therapy",
       "filename": null,
@@ -244,37 +244,70 @@
       "created_at": "2026-05-19T23:36:53.141555",
       "updated_at": "2026-05-19T23:36:53.141555"
     },
-    "5c32c981-3249-4cd8-9c34-4ff7a032a826": {
-      "id": "5c32c981-3249-4cd8-9c34-4ff7a032a826",
+    "35f87b92-a66a-4f24-af3f-87dbec6a9104": {
+      "id": "35f87b92-a66a-4f24-af3f-87dbec6a9104",
+      "category": "transport",
+      "transport_type": "public_transport",
+      "date": "2026-05-09",
+      "vendor": "Winterthur, Bahnhofstrasse 10",
+      "amount": 12.0,
+      "description": "Orthopedic",
+      "filename": "SBB_Receipt_May09.pdf",
+      "stored_name": "35f87b92-a66a-4f24-af3f-87dbec6a9104.pdf",
+      "year": 2026,
+      "created_at": "2026-05-20T00:17:15.320501",
+      "updated_at": "2026-05-20T00:17:15.320501"
+    },
+    "79d408b6-1d13-45fe-840c-5fa0194e9693": {
+      "id": "79d408b6-1d13-45fe-840c-5fa0194e9693",
       "category": "transport",
       "transport_type": "public_transport",
       "date": "2026-05-11",
-      "vendor": "Klinikstra\u00dfe 15, 8400 Winterthur",
-      "amount": 12.8,
-      "description": "Doctor Visit",
+      "vendor": "St. Gallen, Switzerland",
+      "amount": 12.9,
+      "description": "Cantonal Hospital",
       "filename": "SBB_Receipt_May11.pdf",
-      "stored_name": "5c32c981-3249-4cd8-9c34-4ff7a032a826.pdf",
+      "stored_name": "79d408b6-1d13-45fe-840c-5fa0194e9693.pdf",
       "year": 2026,
-      "created_at": "2026-05-19T23:44:59.455794",
-      "updated_at": "2026-05-19T23:44:59.455794"
+      "created_at": "2026-05-20T00:57:39.035363",
+      "updated_at": "2026-05-20T00:57:39.035363"
     },
-    "3a754d05-f1cd-4fa4-bb81-7b74a8259e0f": {
-      "id": "3a754d05-f1cd-4fa4-bb81-7b74a8259e0f",
+    "7ad29a19-1e23-4d0f-b1a8-4237403ad9b6": {
+      "id": "7ad29a19-1e23-4d0f-b1a8-4237403ad9b6",
       "category": "meal",
       "transport_type": "",
-      "date": "2026-05-11",
-      "vendor": "Mueller Anna",
-      "amount": 21.5,
-      "description": "Meal \u00b7 Medical Appointment",
-      "filename": "Meal_Invoice_2.pdf",
-      "stored_name": "3a754d05-f1cd-4fa4-bb81-7b74a8259e0f.pdf",
+      "date": "2026-05-20",
+      "vendor": "Alpine Consulting Group AG",
+      "amount": 452.0,
+      "description": "Meal \u00b7 Therapy",
+      "filename": "Sample Meal Invoice 2.pdf",
+      "stored_name": "7ad29a19-1e23-4d0f-b1a8-4237403ad9b6.pdf",
       "year": 2026,
-      "created_at": "2026-05-19T23:45:35.434613",
-      "updated_at": "2026-05-19T23:45:35.434613",
+      "created_at": "2026-05-20T01:04:57.382905",
+      "updated_at": "2026-05-20T01:04:57.382905",
       "match_ref": {
-        "date": "2026-05-12",
-        "description": "Medical Appointment",
-        "vendor": "Luzerner Kantonsspital, Luzern"
+        "date": "2026-05-20",
+        "description": "Therapy",
+        "vendor": "Institute of Kinder Jugendpsychiatrie, Zurich"
+      }
+    },
+    "a355ee05-21a5-4f1d-92d4-08d40a9844c6": {
+      "id": "a355ee05-21a5-4f1d-92d4-08d40a9844c6",
+      "category": "meal",
+      "transport_type": "",
+      "date": "2026-05-09",
+      "vendor": "Alpine Group AG",
+      "amount": 45.2,
+      "description": "Meal \u00b7 Doctor Visit",
+      "filename": "Sample Meal Invoice 3.pdf",
+      "stored_name": "a355ee05-21a5-4f1d-92d4-08d40a9844c6.pdf",
+      "year": 2026,
+      "created_at": "2026-05-20T01:06:30.488834",
+      "updated_at": "2026-05-20T01:06:30.488834",
+      "match_ref": {
+        "date": "2026-05-08",
+        "description": "Doctor Visit",
+        "vendor": "Kantonsspital St. Gallen"
       }
     }
   },
