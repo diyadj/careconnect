@@ -286,7 +286,7 @@ export default function InvoiceDatabasePage() {
   const allMeals = invoices.filter((i) => i.category === "meal");
   function isMatchedByMeal(inv) {
     return allMeals.some((m) => {
-      if (m.match_ref) return m.match_ref.date === inv.date;
+      if (m.match_ref && m.match_ref.date === inv.date) return true;
       return Math.abs(new Date(m.date).getTime() - new Date(inv.date).getTime()) <= 86400000;
     });
   }

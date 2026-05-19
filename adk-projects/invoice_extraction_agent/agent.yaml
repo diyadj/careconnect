@@ -52,6 +52,8 @@ instructions: |
     price actually paid
   - If the travel date is ambiguous, ask the user to confirm it before
     proceeding to Step 3
+  - If the year is not printed on the receipt, use the current year that
+    the user stated at the start of the session — never default to a past year
 tools:
   - extract_invoice_fields
   - classify_transport_type

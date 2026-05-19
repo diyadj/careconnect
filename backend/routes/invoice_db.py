@@ -152,7 +152,11 @@ async def upload_invoice(
     with open(file_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
 
-    year_key = str(year) if year else str(datetime.now().year)
+    # Prefer the year from the provided date if possible so `date` and storage `year` stay consistent.
+    try:
+        year_key = str(datetime.fromisoformat(date).year)
+    except Exception:
+        year_key = str(year) if year else str(datetime.now().year)
     all_data = read_db()
     if year_key not in all_data:
         all_data[year_key] = {}
@@ -378,8 +382,14 @@ async def agent_extract_invoice(
 
     file_bytes = await file.read()
 
+    today_str = datetime.now().strftime("%d %B %Y")
+    current_year = datetime.now().year
+
     # Turn 1: text trigger only — agent will ask for the file next
-    run1 = await create_run("I want to submit my transport receipts", agent_id=agent_id)
+    run1 = await create_run(
+        f"Today's date is {today_str}. If the year is not printed on the receipt, use {current_year}. I want to submit my transport receipts.",
+        agent_id=agent_id,
+    )
     thread_id = run1.get("thread_id")
     if not thread_id:
         raise HTTPException(status_code=500, detail="Failed to start invoice session.")
@@ -447,13 +457,22 @@ async def agent_extract_invoice(
     else:
         date_str = datetime.now().strftime("%Y-%m-%d")
 
+    # Correct implausible years: model training data can cause it to default to ~2023
+    try:
+        extracted_year = int(date_str[:4])
+        if extracted_year < current_year - 1:
+            date_str = str(current_year) + date_str[4:]
+    except (ValueError, IndexError):
+        pass
+
     os.makedirs(UPLOADS_DIR, exist_ok=True)
     inv_id = str(uuid.uuid4())
     stored_name = f"{inv_id}{ext}"
     with open(os.path.join(UPLOADS_DIR, stored_name), "wb") as f:
         f.write(file_bytes)
 
-    year_key = str(year) if year else str(datetime.now().year)
+    # Prefer the year from the extracted date so storage bucket matches the invoice date.
+    year_key = str(year) if year else (date_str[:4] if date_str else str(datetime.now().year))
     now = datetime.now().isoformat()
     record = {
         "id": inv_id,
@@ -612,7 +631,12 @@ async def meal_extract_invoice(
 
     file_bytes = await file.read()
 
-    run1 = await create_run("I want to submit a meal receipt", agent_id=agent_id)
+    today_str_meal = datetime.now().strftime("%d %B %Y")
+    current_year_meal = datetime.now().year
+    run1 = await create_run(
+        f"Today's date is {today_str_meal}. If the year is not printed on the receipt, use {current_year_meal}. I want to submit a meal receipt.",
+        agent_id=agent_id,
+    )
     thread_id = run1.get("thread_id")
     if not thread_id:
         raise HTTPException(status_code=500, detail="Failed to start meal extraction session.")
@@ -641,6 +665,14 @@ async def meal_extract_invoice(
             detail=f"Agent could not extract meal data. Flow result: {flow_result_text[:800]}",
         )
 
+    # Correct implausible years from model training data defaults
+    try:
+        meal_extracted_year = int(meal_data["date"][:4])
+        if meal_extracted_year < current_year_meal - 1:
+            meal_data["date"] = str(current_year_meal) + meal_data["date"][4:]
+    except (ValueError, IndexError):
+        pass
+
     match_info = _find_matching_appointment(meal_data["date"])
     description = f"Meal · {match_info['description']}" if match_info else "Meal"
 
@@ -650,7 +682,8 @@ async def meal_extract_invoice(
     with open(os.path.join(UPLOADS_DIR, stored_name), "wb") as f:
         f.write(file_bytes)
 
-    year_key = str(year) if year else str(datetime.now().year)
+    # Prefer the year from the parsed meal date to keep `date` and `year` consistent.
+    year_key = str(year) if year else (meal_data["date"][:4] if meal_data and meal_data.get("date") else str(datetime.now().year))
     now = datetime.now().isoformat()
     record = {
         "id": inv_id,
@@ -693,3 +726,38 @@ def delete_invoice(inv_id: str):
     del all_data[found_year][inv_id]
     write_db(all_data)
     return {"status": "deleted", "id": inv_id}
+
+
+@router.post("/repair-year-buckets")
+def repair_year_buckets(dry_run: Optional[bool] = Form(True)):
+    """Re-organise top-level year keys so each invoice record is stored under the year parsed from its `date`.
+
+    This is a maintenance endpoint intended for local/dev use. If `dry_run` is true (default),
+    it reports what would change without writing the file.
+    """
+    all_data = read_db()
+    new_data = {}
+    moved = []
+
+    for year_key, rows in list(all_data.items()):
+        for inv_id, inv in rows.items():
+            date_val = inv.get("date") or ""
+            target_year = None
+            try:
+                target_year = str(datetime.fromisoformat(date_val).year)
+            except Exception:
+                # fallback to existing `year` field or current year
+                target_year = str(inv.get("year") or year_key or datetime.now().year)
+
+            if target_year not in new_data:
+                new_data[target_year] = {}
+            new_data[target_year][inv_id] = inv
+            if target_year != year_key:
+                moved.append({"id": inv_id, "from": year_key, "to": target_year, "date": date_val})
+
+    if dry_run:
+        return {"status": "dry_run", "would_move": moved, "count": len(moved)}
+
+    # write changes
+    write_db(new_data)
+    return {"status": "ok", "moved": moved, "count": len(moved)}
