@@ -83,7 +83,7 @@ a {
 }
 
 .nav-link.active {
-  color: var(--ink);
+  color: #ffffff;
   background: rgba(14, 124, 134, 0.14);
   border-color: rgba(14, 124, 134, 0.25);
   font-weight: 600;
@@ -506,7 +506,7 @@ input[type="file"]::file-selector-button {
 
 .nav-link.active {
   background-color: var(--primary);
-  color: var(--primary-foreground);
+  color: #ffffff;
 }
 
 /* ==========================================================================

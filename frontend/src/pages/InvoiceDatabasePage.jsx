@@ -59,7 +59,6 @@ export default function InvoiceDatabasePage() {
 
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [filterCategory, setFilterCategory] = useState("all");
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
@@ -282,9 +281,15 @@ export default function InvoiceDatabasePage() {
 
   const monthPrefix = `${year}-${String(selectedMonth).padStart(2, "0")}`;
   const monthInvoices = invoices.filter((i) => i.date.startsWith(monthPrefix));
-  const visible = filterCategory === "all"
-    ? monthInvoices
-    : monthInvoices.filter((i) => i.category === filterCategory);
+  const visible = monthInvoices.filter((i) => i.category === "transport");
+
+  const allMeals = invoices.filter((i) => i.category === "meal");
+  function isMatchedByMeal(inv) {
+    return allMeals.some((m) => {
+      if (m.match_ref) return m.match_ref.date === inv.date;
+      return Math.abs(new Date(m.date).getTime() - new Date(inv.date).getTime()) <= 86400000;
+    });
+  }
 
   const transportTotal = monthInvoices.filter((i) => i.category === "transport").reduce((s, i) => s + i.amount, 0);
   const mealTotal = monthInvoices.filter((i) => i.category === "meal").reduce((s, i) => s + i.amount, 0);
@@ -320,7 +325,7 @@ export default function InvoiceDatabasePage() {
     if (!svaMonth) { alert("Please select a month."); return; }
 
     const monthInvs = invoices
-      .filter((i) => i.category === "transport" && i.date.startsWith(svaMonth))
+      .filter((i) => i.category === "transport" && i.date.startsWith(svaMonth) && i.transport_type !== "tixitaxi")
       .sort((a, b) => a.date.localeCompare(b.date));
 
     if (monthInvs.length === 0) { alert("No transport invoices found for that month."); return; }
@@ -401,7 +406,7 @@ export default function InvoiceDatabasePage() {
     <thead><tr>
       <th>Travel Date</th><th>Appointment Reason</th><th>Appointment Address</th>
       <th>Public Transport Fare<br>2nd Class</th><th>Private Car</th>
-      <th>Taxi and Other<br>Transport Services</th><th>Total</th>
+      <th>Special<br>Transports</th><th>Total</th>
     </tr></thead>
     <tbody>${rows.join("")}</tbody>
     <tfoot><tr class="total-row">
@@ -709,25 +714,20 @@ export default function InvoiceDatabasePage() {
 
       {/* Invoice table */}
       <div className="section" style={{ marginTop: "2rem" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem", flexWrap: "wrap", gap: "0.75rem" }}>
-          <h2 style={{ margin: 0 }}>Records</h2>
-          <div className="chip-row">
-            {[{ value: "all", label: "All" }, { value: "transport", label: "Transport" }, { value: "meal", label: "Meals" }].map(({ value, label }) => (
-              <button key={value} type="button" className={`chip${filterCategory === value ? " selected" : ""}`} onClick={() => setFilterCategory(value)}>{label}</button>
-            ))}
-          </div>
+        <div style={{ marginBottom: "1rem" }}>
+          <h2 style={{ margin: 0 }}>Transport Records</h2>
         </div>
 
         {loading ? (
           <p style={{ color: "var(--muted)" }}>Loading…</p>
         ) : visible.length === 0 ? (
-          <p style={{ color: "var(--muted)" }}>No {filterCategory === "all" ? "" : filterCategory + " "}invoices recorded for {MONTH_LABELS[selectedMonth - 1]} {year}.</p>
+          <p style={{ color: "var(--muted)" }}>No transport invoices recorded for {MONTH_LABELS[selectedMonth - 1]} {year}.</p>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
               <thead>
                 <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                  {["Date", "Transport Type", "Appointment Address", "Appointment Reason", "File", "Amount", ""].map((h) => (
+                  {["Date", "Transport Type", "Appointment Address", "Appointment Reason", "Matched", "Amount", ""].map((h) => (
                     <th key={h} style={{ padding: "0.6rem 0.75rem", textAlign: h === "Amount" ? "right" : "left", fontWeight: 600, fontSize: "0.8rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{h}</th>
                   ))}
                 </tr>
@@ -740,15 +740,11 @@ export default function InvoiceDatabasePage() {
                     <td style={{ padding: "0.65rem 0.75rem", fontWeight: 500 }}>{inv.vendor}</td>
                     <td style={{ padding: "0.65rem 0.75rem", color: "var(--muted)", maxWidth: "200px" }}>{inv.description || "—"}</td>
                     <td style={{ padding: "0.65rem 0.75rem" }}>
-                      {inv.source === "ride" ? (
-                        <span style={{ display: "inline-block", fontSize: "0.75rem", color: "#0e7c86", background: "#e0f2f4", borderRadius: "999px", padding: "0.1rem 0.55rem", fontWeight: 600 }}>Ride Plan</span>
-                      ) : inv.filename ? (
-                        <a href={`/api/invoice-db/file/${inv.id}`} target="_blank" rel="noreferrer"
-                          style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", fontSize: "0.82rem", color: "var(--primary)", textDecoration: "none", fontWeight: 500 }}
-                          title={inv.filename}>
-                          {inv.filename.endsWith(".pdf") ? "📄" : "🖼️"}{inv.filename.length > 20 ? inv.filename.slice(0, 18) + "…" : inv.filename}
-                        </a>
-                      ) : <span style={{ color: "var(--muted)", fontSize: "0.82rem" }}>—</span>}
+                      {isMatchedByMeal(inv) ? (
+                        <span style={{ display: "inline-block", fontSize: "0.75rem", color: "#15803d", background: "#dcfce7", borderRadius: "999px", padding: "0.1rem 0.55rem", fontWeight: 600 }}>Matched</span>
+                      ) : (
+                        <span style={{ display: "inline-block", fontSize: "0.75rem", color: "#c2410c", background: "#fff1ee", borderRadius: "999px", padding: "0.1rem 0.55rem", fontWeight: 600 }}>Unmatched</span>
+                      )}
                     </td>
                     <td style={{ padding: "0.65rem 0.75rem", textAlign: "right", fontWeight: 600, fontFamily: "Space Grotesk, sans-serif", whiteSpace: "nowrap" }}>{fmt(inv.amount)}</td>
                     <td style={{ padding: "0.65rem 0.75rem" }}>
@@ -760,7 +756,7 @@ export default function InvoiceDatabasePage() {
               <tfoot>
                 <tr style={{ borderTop: "2px solid var(--border)" }}>
                   <td colSpan={5} style={{ padding: "0.65rem 0.75rem", fontWeight: 600, fontSize: "0.875rem" }}>
-                    {filterCategory === "all" ? "Total" : filterCategory === "transport" ? "Transport Total" : "Meals Total"} — {MONTH_LABELS[selectedMonth - 1]} {year}
+                    Transport Total — {MONTH_LABELS[selectedMonth - 1]} {year}
                   </td>
                   <td style={{ padding: "0.65rem 0.75rem", textAlign: "right", fontWeight: 700, fontFamily: "Space Grotesk, sans-serif" }}>{fmt(visible.reduce((s, i) => s + i.amount, 0))}</td>
                   <td />
@@ -887,7 +883,7 @@ export default function InvoiceDatabasePage() {
             </div>
 
             <div style={{ fontSize: "0.82rem", color: "var(--muted)", background: "#fff8e1", border: "1px solid #ffe082", borderRadius: "8px", padding: "0.65rem 0.9rem", marginBottom: "1.25rem", lineHeight: 1.5 }}>
-              <strong>Note:</strong> TixiTaxi and other transport services go in "Taxi and Other Transport Services". Public transport → "Public Transport Fare 2nd Class". Private car → "Private Car" (max CHF 0.70/km). The <em>Appointment Reason</em> and <em>Appointment Address</em> columns are filled from the values you entered during extraction.
+              <strong>Note:</strong> TixiTaxi rides are excluded from this form (handled separately). "Special Transports" covers other transport services (e.g. ambulance, wheelchair). Public transport → "Public Transport Fare 2nd Class". Private car → "Private Car" (max CHF 0.70/km). The <em>Appointment Reason</em> and <em>Appointment Address</em> columns are filled from the values you entered during extraction.
             </div>
 
             <button className="btn btn-primary" onClick={generateSVAForm} disabled={!svaMonth || svaMonthOptions.length === 0}>

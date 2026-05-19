@@ -175,18 +175,23 @@ async def send_tixi_email(year: Optional[int] = None):
 
     count = len(tixi_rides)
     profile = read_profile()
-    invoice_address = (profile.get("invoice_address") or "").strip()
-    invoice_address_block = f"Invoice address:\n{invoice_address}\n\n" if invoice_address else ""
+    guardian_name = " ".join(filter(None, [
+        (profile.get("parent_first_name") or "").strip(),
+        (profile.get("parent_last_name") or "").strip(),
+    ])) or "Guardian"
+    guardian_phone = (profile.get("parent_phone") or "").strip()
     agent_message = (
         f"Please send an Outlook email to {taxi_email} with the following details:\n\n"
-        f"Subject: TixiTaxi Rides {target_year} – CareConnect\n\n"
+        f"Subject: TixiTaxi Booking Request\n\n"
         f"Body:\n"
-        f"Hi,\n\n"
-        f"Please find below the TixiTaxi rides planned for {target_year} "
-        f"({count} ride{'s' if count != 1 else ''}):\n\n"
+        f"Dear TixiTaxi Team,\n\n"
+        f"I would like to book a TixiTaxi for the following upcoming rides:\n\n"
         f"{table}\n\n"
-        f"{invoice_address_block}"
-        f"Best regards,\nCareConnect"
+        f"If any of these times don't work or if you need to adjust the schedule, "
+        f"please give me a call at {guardian_phone}.\n\n"
+        f"Thank you very much for your help!\n\n"
+        f"Best regards,\n"
+        f"{guardian_name}"
     )
 
     headers = await get_auth_headers()

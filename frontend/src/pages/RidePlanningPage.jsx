@@ -3,7 +3,7 @@ import api from "../api/client";
 import StatusCard from "../components/StatusCard";
 
 const RIDE_TYPE_LABELS = {
-  tixitaxi: "Taxi",
+  tixitaxi: "TixiTaxi",
   private_car: "Private",
 };
 
@@ -327,7 +327,7 @@ export default function RidePlanningPage() {
         <form onSubmit={handleAddRide}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
             <div>
-              <label className="form-label">Date *</label>
+              <label className="form-label">Date</label>
               <input
                 type="date"
                 value={date}
@@ -337,7 +337,7 @@ export default function RidePlanningPage() {
               />
             </div>
             <div>
-              <label className="form-label">Time *</label>
+              <label className="form-label">Time</label>
               <input
                 type="time"
                 value={time}
@@ -350,7 +350,7 @@ export default function RidePlanningPage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
             <div>
-              <label className="form-label">Starting Location *</label>
+              <label className="form-label">Starting Location</label>
               <input
                 type="text"
                 placeholder="e.g., Home or address"
@@ -361,7 +361,7 @@ export default function RidePlanningPage() {
               />
             </div>
             <div>
-              <label className="form-label">Destination *</label>
+              <label className="form-label">Destination</label>
               <input
                 type="text"
                 placeholder="e.g., Therapy Center"
@@ -388,7 +388,7 @@ export default function RidePlanningPage() {
             <label className="form-label">Type of Ride</label>
             <div className="chip-row" style={{ marginTop: "0.5rem" }}>
               {[
-                { value: "tixitaxi", label: "Taxi" },
+                { value: "tixitaxi", label: "TixiTaxi" },
                 { value: "private_car", label: "Private" },
               ].map(({ value, label }) => (
                 <button
@@ -658,15 +658,8 @@ function RideCard({ ride, onEdit, onDelete, onCancel, canCancel, isEditing }) {
           {canCancel && (
             <button
               onClick={() => onCancel(ride)}
-              className="btn"
-              style={{
-                padding: "0.45rem 0.75rem",
-                fontSize: "0.85rem",
-                background: "#f59e0b",
-                color: "#ffffff",
-                border: "1px solid #f59e0b",
-                borderRadius: "8px",
-              }}
+              className="btn btn-secondary"
+              style={{ padding: "0.45rem 0.75rem", fontSize: "0.85rem", color: "#f59e0b" }}
             >
               Cancel
             </button>
@@ -730,7 +723,7 @@ function CancelRideModal({ ride, loading, onClose, onConfirm }) {
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 style={{ marginTop: 0, marginBottom: "0.8rem", color: "#0e7c86" }}>Cancel Taxi Ride</h3>
+        <h3 style={{ marginTop: 0, marginBottom: "0.8rem", color: "#0e7c86" }}>Cancel TixiTaxi Ride</h3>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.8rem", marginBottom: "0.9rem" }}>
           <div>

@@ -299,6 +299,21 @@
       "year": 2026,
       "created_at": "2026-05-15T10:33:52.553507",
       "updated_at": "2026-05-15T10:33:52.553507"
+    },
+    "46298da9-8ba9-4826-962f-ef620b118921": {
+      "id": "46298da9-8ba9-4826-962f-ef620b118921",
+      "date": "2026-05-28",
+      "time": "16:14",
+      "origin": "St Gallen",
+      "destination": "Zurich",
+      "appointment_type": "Medical Appointment",
+      "ride_type": "private_car",
+      "kilometers_driven": 11.9,
+      "cost_chf": 8.33,
+      "notes": "",
+      "year": 2026,
+      "created_at": "2026-05-19T13:15:13.762200",
+      "updated_at": "2026-05-19T13:15:13.762200"
     }
   }
 }
